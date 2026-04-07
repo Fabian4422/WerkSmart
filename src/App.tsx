@@ -640,8 +640,15 @@ export default function App() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [isLoading, setIsLoading] = useState(() => !!localStorage.getItem("werkpro-token"));
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem("werkpro-token"));
+  const [isLoading, setIsLoading] = useState(
+    () => !!localStorage.getItem("werkpro-token") || localStorage.getItem("isLoggedIn") === "true"
+  );
+  const [token, setToken] = useState<string | null>(() => {
+    const storedToken = localStorage.getItem("werkpro-token");
+    if (storedToken) return storedToken;
+    if (localStorage.getItem("isLoggedIn") === "true") return "local-auth-token";
+    return null;
+  });
   const [user, setUser] = useState<any>(() => {
     try {
       const raw = localStorage.getItem("werkpro-user");
@@ -733,6 +740,7 @@ export default function App() {
   const handleLogout = useCallback(() => {
     localStorage.removeItem("werkpro-token");
     localStorage.removeItem("werkpro-user");
+    localStorage.removeItem("isLoggedIn");
     setToken(null);
     setUser(null);
     setProfile(null);
@@ -819,6 +827,7 @@ export default function App() {
   const handleAuth = (newToken: string, newUser: any) => {
     if (!newToken || typeof newToken !== "string") return;
     localStorage.setItem("werkpro-token", newToken);
+    localStorage.setItem("isLoggedIn", "true");
     try {
       localStorage.setItem("werkpro-user", JSON.stringify(newUser ?? null));
     } catch {

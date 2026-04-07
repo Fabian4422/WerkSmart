@@ -12,6 +12,9 @@ interface AuthProps {
   onAuth: (token: string, user: any) => void;
 }
 
+const LOCAL_USERS_KEY = "werksmart-local-users";
+const LOCAL_TOKEN = "local-auth-token";
+
 export default function Auth({ onAuth }: AuthProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -32,26 +35,54 @@ export default function Auth({ onAuth }: AuthProps) {
       return;
     }
 
-    const endpoint = isLogin ? "/api/auth/login" : "/api/auth/signup";
-    
     try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Etwas ist schiefgelaufen");
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!normalizedEmail) {
+        throw new Error("Bitte eine E-Mail-Adresse eingeben.");
       }
 
-      if (typeof data.token !== "string" || !data.token) {
-        throw new Error("Ungültige Server-Antwort: Kein Token erhalten.");
+      const usersRaw = localStorage.getItem(LOCAL_USERS_KEY);
+      let users: any[] = [];
+      try {
+        const parsed = JSON.parse(usersRaw || "[]");
+        users = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        users = [];
       }
 
-      onAuth(data.token, data.user);
+      if (isLogin) {
+        const existing = users.find(
+          (u: any) => String(u?.email || "").toLowerCase() === normalizedEmail
+        );
+        if (!existing || existing.password !== password) {
+          throw new Error("E-Mail oder Passwort ist falsch.");
+        }
+
+        localStorage.setItem("werkpro-user", JSON.stringify({ id: existing.id, email: existing.email }));
+        localStorage.setItem("werkpro-token", LOCAL_TOKEN);
+        localStorage.setItem("isLoggedIn", "true");
+        onAuth(LOCAL_TOKEN, { id: existing.id, email: existing.email, localOnly: true });
+      } else {
+        const alreadyExists = users.some(
+          (u: any) => String(u?.email || "").toLowerCase() === normalizedEmail
+        );
+        if (alreadyExists) {
+          throw new Error("Diese E-Mail ist bereits registriert.");
+        }
+
+        const newUser = {
+          id: Date.now(),
+          email: normalizedEmail,
+          password,
+          createdAt: new Date().toISOString(),
+        };
+        const updatedUsers = [...users, newUser];
+        localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(updatedUsers));
+        localStorage.setItem("werkpro-user", JSON.stringify({ id: newUser.id, email: newUser.email }));
+        localStorage.setItem("werkpro-token", LOCAL_TOKEN);
+        localStorage.setItem("isLoggedIn", "true");
+        onAuth(LOCAL_TOKEN, { id: newUser.id, email: newUser.email, localOnly: true });
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
