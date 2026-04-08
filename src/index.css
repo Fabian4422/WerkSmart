@@ -7,89 +7,84 @@
 }
 
 /*
-  A4 @ 96dpi — feste Pixel (794×1123), damit Vorschau, Druck und „PDF speichern“ dieselbe Geometrie nutzen.
-  Entspricht ca. 210mm × 297mm, Innenabstand ~12mm.
+  Festes A4-System für Vorschau und PDF (html2canvas): 210 mm × min 297 mm,
+  20 mm Innenabstand — keine Transform-Skalierung, kein „Nachziehen“ per !important.
 */
-.print-document {
-  width: 800px;
-  max-width: 800px;
+.a4-container {
+  width: 210mm;
   min-height: 297mm;
+  max-width: 100%;
   box-sizing: border-box;
-  /* Unten etwas mehr Rand (~18 mm), damit Fußzeile zur A4-Kante passt */
-  padding: 45px 45px 68px 45px;
-  margin: 20px auto;
   background: #fff;
+  padding: 20mm;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
-  /* Feste px, damit längere Dokumente / Vorschau-Skalierung die Typo nicht „mitskalieren“. */
   font-size: 12px;
   line-height: 1.45;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  display: flex;
-  flex-direction: column;
 }
 
-/* Innenspalte: Leerraum zwischen Hauptinhalt und Fuß (Sticky-Footer auf A4) */
-.print-document .print-doc-inner {
-  width: 100%;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  /* Höhe = A4-Innenfläche (min-height der Seite abzüglich top/bottom-Padding, vgl. .print-document) */
-  min-height: calc(297mm - 45px - 68px);
-}
-
-.print-document .print-doc-main-flow {
-  flex: 0 1 auto;
-}
-
-.print-document .print-doc-page-footer {
+.a4-container .print-doc-body {
   flex: 0 0 auto;
+}
+
+.a4-container .print-doc-items-table {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 100%;
+  font-size: 12pt;
+  line-height: 1.45;
+}
+
+.a4-container .print-doc-items-table th,
+.a4-container .print-doc-items-table td {
+  padding: 10px 8px;
+}
+
+.a4-container .print-doc-items-table thead th {
+  font-size: 12pt;
+}
+
+.a4-container .print-doc-flex-spacer {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.a4-container .print-doc-page-footer {
+  flex: 0 0 auto;
+  flex-shrink: 0;
   width: 100%;
   padding-top: 12px;
 }
 
-.print-document .print-doc-footer-rule {
+.a4-container .print-doc-footer-rule {
   border-top: 1px solid #eeeeee;
   width: 100%;
   margin: 0 0 12px 0;
 }
 
-/* Leistungstabelle: Lesbarkeit + Zeilenabstand */
-.print-document table.print-doc-items-table {
-  font-size: 12pt;
-  line-height: 1.45;
-}
-
-.print-document table.print-doc-items-table th,
-.print-document table.print-doc-items-table td {
-  padding: 12px 8px;
-}
-
-.print-document table.print-doc-items-table thead th {
-  font-size: 12pt;
-}
-
-.print-document .print-doc-h3 {
+.a4-container .print-doc-h3 {
   font-size: 22px;
   line-height: 1.25;
 }
 
-.print-document .print-doc-h4 {
+.a4-container .print-doc-h4 {
   font-size: 28px;
   line-height: 1.15;
 }
 
-.print-document .print-doc-xs {
+.a4-container .print-doc-xs {
   font-size: 11px;
 }
 
-.print-document .print-doc-micro {
+.a4-container .print-doc-micro {
   font-size: 10px;
 }
 
-.print-document .print-doc-xl-total {
+.a4-container .print-doc-xl-total {
   font-size: 18px;
 }
 
@@ -99,17 +94,8 @@
 }
 
 .a4-preview-scale {
-  width: 800px;
-  margin: 0 auto;
-  transform-origin: top center;
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }
-
-@media (max-width: 900px) {
-  .a4-preview-scale {
-    --a4-scale: min(1, calc((100vw - 3rem) / 800));
-    transform: scale(var(--a4-scale));
-    height: calc(1131px * var(--a4-scale));
-  }
-}
-
 

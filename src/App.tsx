@@ -145,12 +145,10 @@ function buildDraftDocument(newDoc: Partial<Document>, profile: Profile | null):
   };
 }
 
-/** A4 @ 96dpi — identisch zu `.print-document` in `index.css` (Vorschau = Druck/PDF). */
-const PRINT_PAGE_WIDTH_PX = 794;
-const PRINT_PAGE_MIN_HEIGHT_PX = 1123;
-const PRINT_PAGE_PADDING_PX = 45;
-/** Innenbreite: A4 − linker/rechter Innenrand (nur px, kein % — feste Satzspiegel-Breite). */
-const PRINT_CONTENT_WIDTH_PX = PRINT_PAGE_WIDTH_PX - 2 * PRINT_PAGE_PADDING_PX;
+/** A4 mit 20 mm Innenabstand — Satzspiegelbreite in px @ 96dpi (≈ 170 mm). */
+const A4_PADDING_MM = 20;
+const A4_WIDTH_MM = 210;
+const PRINT_CONTENT_WIDTH_PX = Math.round(((A4_WIDTH_MM - 2 * A4_PADDING_MM) / 25.4) * 96);
 
 const PDF_CAPTURE_SCALE = 2;
 
@@ -219,7 +217,7 @@ function replaceOklchColors(clonedDoc: globalThis.Document) {
 function snapshotPrintDocumentStyles(clonedDoc: globalThis.Document) {
   const win = clonedDoc.defaultView;
   if (!win) return;
-  const root = clonedDoc.querySelector(".print-document");
+  const root = clonedDoc.querySelector(".a4-container");
   if (!(root instanceof HTMLElement)) return;
 
   const PROPS = [
@@ -318,7 +316,7 @@ async function waitForImagesInElement(el: HTMLElement) {
   );
 }
 
-/** 1:1 Screenshot der Dokumentenansicht als PDF (Desktop-Breite erzwungen). */
+/** Raster der A4-Vorschau (210 mm) in eine A4-PDF-Seite — gleiches Seitenverhältnis, max. eine Seite sichtbar. */
 async function downloadPDF(element: HTMLElement, filename: string) {
   const rect = element.getBoundingClientRect();
   if (rect.width < 2 || rect.height < 2) {
@@ -339,67 +337,54 @@ async function downloadPDF(element: HTMLElement, filename: string) {
 
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-  const prevWidth = element.style.width;
-  const prevMaxWidth = element.style.maxWidth;
-  const prevMinWidth = element.style.minWidth;
-
-  element.style.width = "800px";
-  element.style.maxWidth = "800px";
-  element.style.minWidth = "800px";
-
-  let canvas: HTMLCanvasElement;
-  try {
-    canvas = await html2canvas(element, {
-      scale: PDF_CAPTURE_SCALE,
-      useCORS: true,
-      allowTaint: false,
-      foreignObjectRendering: false,
-      backgroundColor: "#ffffff",
-      logging: false,
-      imageTimeout: 15000,
-      scrollX: -window.scrollX,
-      scrollY: -window.scrollY,
-      windowWidth: 800,
-      onclone: (clonedDoc) => {
-        replaceOklchColors(clonedDoc);
-        snapshotPrintDocumentStyles(clonedDoc);
-        const pd = clonedDoc.querySelector(".print-document") as HTMLElement | null;
-        if (pd) {
-          pd.style.boxShadow = "none";
-          pd.style.outline = "none";
-          pd.style.opacity = "1";
-          pd.style.visibility = "visible";
-          pd.style.width = "800px";
-          pd.style.maxWidth = "800px";
-          pd.style.minWidth = "800px";
-          pd.style.boxSizing = "border-box";
-        }
-      },
-    });
-  } finally {
-    element.style.width = prevWidth;
-    element.style.maxWidth = prevMaxWidth;
-    element.style.minWidth = prevMinWidth;
-  }
+  const canvas = await html2canvas(element, {
+    scale: PDF_CAPTURE_SCALE,
+    useCORS: true,
+    allowTaint: false,
+    foreignObjectRendering: false,
+    backgroundColor: "#ffffff",
+    logging: false,
+    imageTimeout: 15000,
+    scrollX: -window.scrollX,
+    scrollY: -window.scrollY,
+    onclone: (clonedDoc) => {
+      replaceOklchColors(clonedDoc);
+      snapshotPrintDocumentStyles(clonedDoc);
+      const ac = clonedDoc.querySelector(".a4-container") as HTMLElement | null;
+      if (ac) {
+        ac.style.boxShadow = "none";
+        ac.style.outline = "none";
+        ac.style.opacity = "1";
+        ac.style.visibility = "visible";
+        ac.style.boxSizing = "border-box";
+      }
+    },
+  });
 
   if (!canvas.width || !canvas.height) {
     throw new Error("PDF-Export: Das gerenderte Bild ist leer (0×0).");
   }
 
   const imgData = canvas.toDataURL("image/png");
-  const pdfImgWidthMm = 190;
-  const imgHeightPdf = (canvas.height * pdfImgWidthMm) / canvas.width;
   const pageWidthMm = 210;
-  const marginTopMm = 15;
-  const marginBottomMm = 15;
-  const pageHeightMm = Math.max(297, marginTopMm + imgHeightPdf + marginBottomMm);
+  const pageHeightMm = 297;
+  const imgAspect = canvas.height / canvas.width;
+
+  let drawW = pageWidthMm;
+  let drawH = drawW * imgAspect;
+  if (drawH > pageHeightMm) {
+    drawH = pageHeightMm;
+    drawW = drawH / imgAspect;
+  }
+  const x = (pageWidthMm - drawW) / 2;
+  const y = (pageHeightMm - drawH) / 2;
 
   const pdf = new jsPDF({
     orientation: "p",
     unit: "mm",
     format: [pageWidthMm, pageHeightMm],
   });
-  pdf.addImage(imgData, "PNG", 10, marginTopMm, pdfImgWidthMm, imgHeightPdf);
+  pdf.addImage(imgData, "PNG", x, y, drawW, drawH);
   pdf.save(filename);
 }
 
@@ -414,17 +399,16 @@ function DocumentPrintPreview({
 }) {
   const W = PRINT_CONTENT_WIDTH_PX;
   const colPos = 40;
-  const colTitle = 380;
-  const colQty = 88;
-  const colPrice = 98;
-  const colTotal = 98;
+  const colTitle = 358;
+  const colQty = 78;
+  const colPrice = 85;
+  const colTotal = 82;
   const colFooter = Math.floor(W / 2);
 
   return (
-    <div ref={innerRef} className="print-document bg-white text-stone-800 max-w-none">
-      <div className="print-doc-inner" style={{ width: W, maxWidth: W }}>
-        <div className="print-doc-main-flow">
-        <table className="mb-12 border-collapse" style={{ width: W, tableLayout: "fixed" }}>
+    <div ref={innerRef} className="a4-container text-stone-800 max-w-none">
+        <div className="print-doc-body" style={{ width: "100%", maxWidth: "100%" }}>
+        <table className="mb-12 border-collapse" style={{ width: "100%", tableLayout: "fixed" }}>
           <tbody>
             <tr>
               <td className="align-top pb-0" style={{ width: W - 120, verticalAlign: "top" }}>
@@ -460,14 +444,14 @@ function DocumentPrintPreview({
           </tbody>
         </table>
 
-        <div className="mb-12" style={{ width: W }}>
+        <div className="mb-12" style={{ width: "100%" }}>
           <p className="print-doc-micro text-stone-400 underline mb-2">
             {profile?.companyName} • {profile?.address}
           </p>
           <p className="font-bold">{doc.customerName}</p>
         </div>
 
-        <table className="mb-8 border-collapse" style={{ width: W, tableLayout: "fixed" }}>
+        <table className="mb-8 border-collapse" style={{ width: "100%", tableLayout: "fixed" }}>
           <tbody>
             <tr>
               <td className="align-bottom" style={{ verticalAlign: "bottom" }}>
@@ -484,7 +468,7 @@ function DocumentPrintPreview({
           </tbody>
         </table>
 
-        <table className="mb-12 border-collapse print-doc-items-table" style={{ width: W, tableLayout: "fixed" }}>
+        <table className="mb-12 border-collapse print-doc-items-table" style={{ width: "100%", tableLayout: "fixed" }}>
           <colgroup>
             <col style={{ width: colPos }} />
             <col style={{ width: colTitle }} />
@@ -552,12 +536,13 @@ function DocumentPrintPreview({
             </tbody>
           </table>
         </div>
-
         </div>
+
+        <div className="print-doc-flex-spacer" aria-hidden />
 
         <div className="print-doc-page-footer">
           <div className="print-doc-footer-rule" aria-hidden />
-          <table className="border-collapse" style={{ width: W, tableLayout: "fixed" }}>
+          <table className="border-collapse" style={{ width: "100%", tableLayout: "fixed" }}>
             <tbody>
               <tr>
                 <td className="align-top print-doc-micro text-stone-400 align-top" style={{ width: colFooter, verticalAlign: "top" }}>
@@ -578,7 +563,6 @@ function DocumentPrintPreview({
             </tbody>
           </table>
         </div>
-      </div>
     </div>
   );
 }
