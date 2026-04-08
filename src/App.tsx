@@ -412,13 +412,15 @@ function DocumentPrintPreview({
           <tbody>
             <tr>
               <td className="align-top pb-0" style={{ width: W - 120, verticalAlign: "top" }}>
-                <h3 className="print-doc-h3 font-bold text-stone-900">{profile?.companyName}</h3>
-                <p className="print-doc-xs text-stone-500">{profile?.legalForm}</p>
-                <div className="mt-4 print-doc-xs text-stone-500">
-                  <p className="mb-0.5">{profile?.address}</p>
-                  <p>
-                    {profile?.phone} | {profile?.email}
-                  </p>
+                <div className="print-doc-sender-block">
+                  <h3 className="print-doc-h3 font-bold text-stone-900">{profile?.companyName}</h3>
+                  <p className="print-doc-xs text-stone-500">{profile?.legalForm}</p>
+                  <div className="print-doc-xs text-stone-500 print-doc-sender-contact">
+                    <p>{profile?.address}</p>
+                    <p>
+                      {profile?.phone} | {profile?.email}
+                    </p>
+                  </div>
                 </div>
               </td>
               <td className="align-top text-right" style={{ width: 120, verticalAlign: "top" }}>
@@ -444,18 +446,20 @@ function DocumentPrintPreview({
           </tbody>
         </table>
 
-        <div className="mb-12" style={{ width: "100%" }}>
-          <p className="print-doc-micro text-stone-400 underline mb-2">
-            {profile?.companyName} • {profile?.address}
-          </p>
-          <p className="font-bold">{doc.customerName}</p>
+        <div className="print-doc-recipient-block">
+          <div className="print-doc-recipient-lines">
+            <p className="print-doc-micro text-stone-400 underline">
+              {profile?.companyName} • {profile?.address}
+            </p>
+            <p className="font-bold print-doc-recipient-name">{doc.customerName}</p>
+          </div>
         </div>
 
         <table className="mb-8 border-collapse" style={{ width: "100%", tableLayout: "fixed" }}>
           <tbody>
             <tr>
               <td className="align-bottom" style={{ verticalAlign: "bottom" }}>
-                <h4 className="print-doc-h4 font-black uppercase tracking-tighter text-stone-900">
+                <h4 className="print-doc-h4 print-doc-title-doc font-black uppercase tracking-tighter text-stone-900">
                   {doc.type === "offer" ? "Angebot" : "Rechnung"}
                 </h4>
                 <p className="text-stone-500">Nr. {doc.docNumber || "—"}</p>
