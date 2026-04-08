@@ -14,7 +14,6 @@ import {
   Settings, 
   Save, 
   Download, 
-  Printer, 
   ChevronRight,
   ChevronDown,
   ChevronLeft,
@@ -387,9 +386,11 @@ async function downloadPDF(element: HTMLElement, filename: string) {
     throw new Error("PDF-Export: Das gerenderte Bild ist leer (0×0).");
   }
 
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pdf = new jsPDF("p", "mm", "a4");
   const imgData = canvas.toDataURL("image/png");
-  pdf.addImage(imgData, "PNG", 0, 0, 210, 297);
+  const pdfWidthMm = 210;
+  const pdfHeightMm = (canvas.height * pdfWidthMm) / canvas.width;
+  pdf.addImage(imgData, "PNG", 0, 0, pdfWidthMm, pdfHeightMm);
   pdf.save(filename);
 }
 
@@ -1613,7 +1614,7 @@ export default function App() {
                     <h2 className="text-2xl font-bold print:hidden">Dokument prüfen</h2>
                     
                     <div className="border border-stone-200 rounded-2xl overflow-hidden shadow-inner bg-stone-100 p-4 sm:p-8 print:border-0 print:shadow-none print:bg-white print:p-0">
-                      <div className="a4-preview-viewport">
+                      <div className="preview-container">
                         <div className="a4-preview-scale">
                           <DocumentPrintPreview
                             doc={buildDraftDocument(newDoc, profile)}
@@ -1632,9 +1633,6 @@ export default function App() {
                         className="bg-stone-900 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-stone-800 transition-colors"
                       >
                         <Download className="w-5 h-5" /> PDF laden
-                      </button>
-                      <button onClick={() => window.print()} className="bg-stone-100 text-stone-900 px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-stone-200 transition-colors">
-                        <Printer className="w-5 h-5" /> Drucken
                       </button>
                       <button onClick={handleCreateDocument} className="bg-emerald-600 text-white px-10 py-3 rounded-xl font-bold shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all hover:-translate-y-1">
                         Dokument speichern
@@ -2061,13 +2059,6 @@ export default function App() {
                     >
                       <Download className="w-4 h-4" /> PDF
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => window.print()}
-                      className="inline-flex items-center gap-2 bg-stone-100 text-stone-900 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-stone-200 transition-colors"
-                    >
-                      <Printer className="w-4 h-4" /> Drucken
-                    </button>
                     {openDocument.id != null && (
                       <button
                         type="button"
@@ -2089,7 +2080,7 @@ export default function App() {
                 </div>
                 <div className="overflow-y-auto p-4 sm:p-6 flex-1 print:overflow-visible print:p-0">
                   <div className="border border-stone-200 rounded-2xl overflow-hidden shadow-inner bg-stone-100 p-4 sm:p-8 print:border-0 print:shadow-none print:bg-white">
-                    <div className="a4-preview-viewport">
+                    <div className="preview-container">
                       <div className="a4-preview-scale">
                         <DocumentPrintPreview
                           doc={openDocument}
