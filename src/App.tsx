@@ -387,11 +387,9 @@ async function downloadPDF(element: HTMLElement, filename: string) {
     throw new Error("PDF-Export: Das gerenderte Bild ist leer (0×0).");
   }
 
-  const pageWidthMm = 210;
-  const imgHeightMm = (canvas.height * pageWidthMm) / canvas.width;
-  const pdf = new jsPDF({ unit: "mm", format: [pageWidthMm, imgHeightMm] });
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const imgData = canvas.toDataURL("image/png");
-  pdf.addImage(imgData, "PNG", 0, 0, pageWidthMm, imgHeightMm);
+  pdf.addImage(imgData, "PNG", 0, 0, 210, 297);
   pdf.save(filename);
 }
 
@@ -1615,12 +1613,14 @@ export default function App() {
                     <h2 className="text-2xl font-bold print:hidden">Dokument prüfen</h2>
                     
                     <div className="border border-stone-200 rounded-2xl overflow-hidden shadow-inner bg-stone-100 p-4 sm:p-8 print:border-0 print:shadow-none print:bg-white print:p-0">
-                      <div className="w-fit mx-auto shadow-2xl shadow-stone-300/60 ring-1 ring-stone-900/5 print:shadow-none print:ring-0">
-                        <DocumentPrintPreview
-                          doc={buildDraftDocument(newDoc, profile)}
-                          profile={profile}
-                          innerRef={previewRef}
-                        />
+                      <div className="a4-preview-viewport">
+                        <div className="a4-preview-scale">
+                          <DocumentPrintPreview
+                            doc={buildDraftDocument(newDoc, profile)}
+                            profile={profile}
+                            innerRef={previewRef}
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -2089,12 +2089,14 @@ export default function App() {
                 </div>
                 <div className="overflow-y-auto p-4 sm:p-6 flex-1 print:overflow-visible print:p-0">
                   <div className="border border-stone-200 rounded-2xl overflow-hidden shadow-inner bg-stone-100 p-4 sm:p-8 print:border-0 print:shadow-none print:bg-white">
-                    <div className="w-fit mx-auto shadow-2xl shadow-stone-300/60 ring-1 ring-stone-900/5 print:shadow-none print:ring-0">
-                      <DocumentPrintPreview
-                        doc={openDocument}
-                        profile={profile}
-                        innerRef={documentDetailPreviewRef}
-                      />
+                    <div className="a4-preview-viewport">
+                      <div className="a4-preview-scale">
+                        <DocumentPrintPreview
+                          doc={openDocument}
+                          profile={profile}
+                          innerRef={documentDetailPreviewRef}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

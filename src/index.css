@@ -11,12 +11,33 @@
   Entspricht ca. 210mm × 297mm, Innenabstand ~12mm.
 */
 .print-document {
-  width: 794px;
-  max-width: 794px;
-  min-height: 1123px;
+  width: 800px;
+  max-width: 800px;
+  min-height: 1131px;
   box-sizing: border-box;
   padding: 45px;
   margin: 0 auto;
+  background: #fff;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
+}
+
+.a4-preview-viewport {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.a4-preview-scale {
+  width: 800px;
+  margin: 0 auto;
+  transform-origin: top center;
+}
+
+@media (max-width: 900px) {
+  .a4-preview-scale {
+    --a4-scale: min(1, calc((100vw - 3rem) / 800));
+    transform: scale(var(--a4-scale));
+    height: calc(1131px * var(--a4-scale));
+  }
 }
 
 
