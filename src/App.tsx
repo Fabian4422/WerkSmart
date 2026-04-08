@@ -386,11 +386,20 @@ async function downloadPDF(element: HTMLElement, filename: string) {
     throw new Error("PDF-Export: Das gerenderte Bild ist leer (0×0).");
   }
 
-  const pdf = new jsPDF("p", "mm", "a4");
   const imgData = canvas.toDataURL("image/png");
-  const pdfWidthMm = 210;
-  const pdfHeightMm = (canvas.height * pdfWidthMm) / canvas.width;
-  pdf.addImage(imgData, "PNG", 0, 0, pdfWidthMm, pdfHeightMm);
+  const pdfImgWidthMm = 190;
+  const imgHeightPdf = (canvas.height * pdfImgWidthMm) / canvas.width;
+  const pageWidthMm = 210;
+  const marginTopMm = 15;
+  const marginBottomMm = 15;
+  const pageHeightMm = Math.max(297, marginTopMm + imgHeightPdf + marginBottomMm);
+
+  const pdf = new jsPDF({
+    orientation: "p",
+    unit: "mm",
+    format: [pageWidthMm, pageHeightMm],
+  });
+  pdf.addImage(imgData, "PNG", 10, marginTopMm, pdfImgWidthMm, imgHeightPdf);
   pdf.save(filename);
 }
 
@@ -418,9 +427,9 @@ function DocumentPrintPreview({
           <tbody>
             <tr>
               <td className="align-top pb-0" style={{ width: W - 120, verticalAlign: "top" }}>
-                <h3 className="text-2xl font-bold text-stone-900">{profile?.companyName}</h3>
-                <p className="text-sm text-stone-500">{profile?.legalForm}</p>
-                <div className="mt-4 text-xs text-stone-500">
+                <h3 className="print-doc-h3 font-bold text-stone-900">{profile?.companyName}</h3>
+                <p className="print-doc-xs text-stone-500">{profile?.legalForm}</p>
+                <div className="mt-4 print-doc-xs text-stone-500">
                   <p className="mb-0.5">{profile?.address}</p>
                   <p>
                     {profile?.phone} | {profile?.email}
@@ -451,7 +460,7 @@ function DocumentPrintPreview({
         </table>
 
         <div className="mb-12" style={{ width: W }}>
-          <p className="text-[10px] text-stone-400 underline mb-2">
+          <p className="print-doc-micro text-stone-400 underline mb-2">
             {profile?.companyName} • {profile?.address}
           </p>
           <p className="font-bold">{doc.customerName}</p>
@@ -461,13 +470,13 @@ function DocumentPrintPreview({
           <tbody>
             <tr>
               <td className="align-bottom" style={{ verticalAlign: "bottom" }}>
-                <h4 className="text-3xl font-black uppercase tracking-tighter text-stone-900">
+                <h4 className="print-doc-h4 font-black uppercase tracking-tighter text-stone-900">
                   {doc.type === "offer" ? "Angebot" : "Rechnung"}
                 </h4>
-                <p className="text-sm text-stone-500">Nr. {doc.docNumber || "—"}</p>
+                <p className="text-stone-500">Nr. {doc.docNumber || "—"}</p>
               </td>
-              <td className="text-right text-sm align-bottom" style={{ verticalAlign: "bottom", width: 160 }}>
-                <p className="text-stone-400 uppercase text-[10px] font-bold">Datum</p>
+              <td className="text-right align-bottom" style={{ verticalAlign: "bottom", width: 160 }}>
+                <p className="text-stone-400 uppercase print-doc-micro font-bold">Datum</p>
                 <p className="font-bold">{formatDocDate(doc.date || "")}</p>
               </td>
             </tr>
@@ -483,7 +492,7 @@ function DocumentPrintPreview({
             <col style={{ width: colTotal }} />
           </colgroup>
           <thead>
-            <tr className="border-b-2 border-stone-900 text-left text-[10px] font-bold uppercase tracking-widest text-stone-400">
+            <tr className="border-b-2 border-stone-900 text-left print-doc-micro font-bold uppercase tracking-widest text-stone-400">
               <th className="col-pos">Pos.</th>
               <th className="col-beschreibung">Leistung</th>
               <th className="col-menge">Menge</th>
@@ -493,7 +502,7 @@ function DocumentPrintPreview({
           </thead>
           <tbody>
             {(doc.items || []).map((item, i) => (
-              <tr key={i} className="border-b border-stone-100 text-sm">
+              <tr key={i} className="border-b border-stone-100">
                 <td className="col-pos text-stone-400 align-top">{i + 1}</td>
                 <td className="col-beschreibung font-semibold align-top">{item.title}</td>
                 <td className="col-menge align-top tabular-nums">
@@ -514,28 +523,28 @@ function DocumentPrintPreview({
           <table className="border-collapse" style={{ width: 300, tableLayout: "fixed" }}>
             <tbody>
               <tr>
-                <td className="text-sm text-stone-500 py-1 align-top" style={{ verticalAlign: "top" }}>
+                <td className="text-stone-500 py-1 align-top" style={{ verticalAlign: "top" }}>
                   Netto
                 </td>
-                <td className="text-sm font-semibold tabular-nums text-right py-1 align-top" style={{ verticalAlign: "top" }}>
+                <td className="font-semibold tabular-nums text-right py-1 align-top" style={{ verticalAlign: "top" }}>
                   {doc.totalNet.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €
                 </td>
               </tr>
               {!profile?.isSmallBusiness && (
                 <tr>
-                  <td className="text-sm text-stone-500 py-1 align-top" style={{ verticalAlign: "top" }}>
+                  <td className="text-stone-500 py-1 align-top" style={{ verticalAlign: "top" }}>
                     MwSt ({profile?.vatRate}%)
                   </td>
-                  <td className="text-sm font-semibold tabular-nums text-right py-1 align-top" style={{ verticalAlign: "top" }}>
+                  <td className="font-semibold tabular-nums text-right py-1 align-top" style={{ verticalAlign: "top" }}>
                     {doc.totalVat.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €
                   </td>
                 </tr>
               )}
               <tr className="border-t-2 border-stone-900">
-                <td className="text-xl font-black pt-2 pb-1 align-bottom" style={{ verticalAlign: "bottom" }}>
+                <td className="print-doc-xl-total font-black pt-2 pb-1 align-bottom" style={{ verticalAlign: "bottom" }}>
                   Gesamt
                 </td>
-                <td className="text-xl font-black pt-2 pb-1 text-right tabular-nums align-bottom" style={{ verticalAlign: "bottom" }}>
+                <td className="print-doc-xl-total font-black pt-2 pb-1 text-right tabular-nums align-bottom" style={{ verticalAlign: "bottom" }}>
                   {doc.totalGross.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €
                 </td>
               </tr>
@@ -546,13 +555,13 @@ function DocumentPrintPreview({
         <table className="mt-12 border-collapse border-t border-stone-100" style={{ width: W, tableLayout: "fixed" }}>
           <tbody>
             <tr>
-              <td className="align-top text-[10px] text-stone-400 pt-8 align-top" style={{ width: colFooter, verticalAlign: "top", paddingTop: 32 }}>
+              <td className="align-top print-doc-micro text-stone-400 pt-8 align-top" style={{ width: colFooter, verticalAlign: "top", paddingTop: 32 }}>
                 <p className="font-bold text-stone-600 uppercase mb-1">Bankverbindung</p>
                 <p>{profile?.bankName}</p>
                 <p>IBAN: {profile?.iban}</p>
                 <p>BIC: {profile?.bic}</p>
               </td>
-              <td className="align-top text-[10px] text-stone-400 text-right pt-8 align-top" style={{ width: W - colFooter, verticalAlign: "top", paddingTop: 32 }}>
+              <td className="align-top print-doc-micro text-stone-400 text-right pt-8 align-top" style={{ width: W - colFooter, verticalAlign: "top", paddingTop: 32 }}>
                 <p className="font-bold text-stone-600 uppercase mb-1">Steuerdaten</p>
                 <p>Steuernummer: {profile?.taxNumber}</p>
                 {profile?.vatId && <p>USt-ID: {profile.vatId}</p>}
