@@ -323,7 +323,7 @@ function buildPdfDownloadFilename(docType: "offer" | "invoice", docNumber: strin
   return docType === "invoice" ? `Rechnung_${safe}.pdf` : `Angebot_${safe}.pdf`;
 }
 
-/** Raster der A4-Vorschau (210 mm) in eine A4-PDF-Seite — gleiches Seitenverhältnis, max. eine Seite sichtbar. */
+/** A4-PDF aus html2canvas: 190 mm Bildbreite, proportionale Höhe (kein vertikales Strecken), Rest der Seite weiß. */
 async function downloadPDF(element: HTMLElement, filename: string) {
   const rect = element.getBoundingClientRect();
   if (rect.width < 2 || rect.height < 2) {
@@ -375,23 +375,28 @@ async function downloadPDF(element: HTMLElement, filename: string) {
   const imgData = canvas.toDataURL("image/png");
   const pageWidthMm = 210;
   const pageHeightMm = 297;
-  const imgAspect = canvas.height / canvas.width;
+  const imgXmm = 10;
+  const imgYmm = 10;
+  const imgWmm = 190;
+  let imgHeight = (canvas.height * imgWmm) / canvas.width;
 
-  let drawW = pageWidthMm;
-  let drawH = drawW * imgAspect;
-  if (drawH > pageHeightMm) {
-    drawH = pageHeightMm;
-    drawW = drawH / imgAspect;
+  const maxHmm = pageHeightMm - imgYmm;
+  let drawW = imgWmm;
+  let drawH = imgHeight;
+  if (drawH > maxHmm) {
+    const scale = maxHmm / drawH;
+    drawW *= scale;
+    drawH = maxHmm;
   }
-  const x = (pageWidthMm - drawW) / 2;
-  const y = (pageHeightMm - drawH) / 2;
 
   const pdf = new jsPDF({
     orientation: "p",
     unit: "mm",
     format: [pageWidthMm, pageHeightMm],
   });
-  pdf.addImage(imgData, "PNG", x, y, drawW, drawH);
+  pdf.setFillColor(255, 255, 255);
+  pdf.rect(0, 0, pageWidthMm, pageHeightMm, "F");
+  pdf.addImage(imgData, "PNG", imgXmm, imgYmm, drawW, drawH);
   pdf.save(filename);
 }
 
