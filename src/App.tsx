@@ -39,6 +39,7 @@ import { Profile, Service, Document, DocumentItem } from "./types";
 import Auth from "./components/Auth";
 import Landing from "./Landing";
 import { Link } from "react-router-dom";
+import printStyles from "./print.module.css";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -694,9 +695,6 @@ export default function App() {
 
   const previewRef = useRef<HTMLDivElement>(null);
   const documentDetailPreviewRef = useRef<HTMLDivElement>(null);
-  /** Nur Dokument, offscreen — identisch zur Vorschau, für html2canvas-PDF ohne UI. */
-  const pdfCaptureDraftRef = useRef<HTMLDivElement>(null);
-  const pdfCaptureSavedRef = useRef<HTMLDivElement>(null);
   const [openDocument, setOpenDocument] = useState<Document | null>(null);
 
   // Dashboard: Filter-Entwurf vs. angewendete Filter (erst nach „Filter anwenden“)
@@ -1003,37 +1001,12 @@ export default function App() {
     resetDocumentDraft();
   };
 
-  const generatePDF = async () => {
-    if (!pdfCaptureDraftRef.current) {
-      alert("PDF konnte nicht erstellt werden. Bitte kurz warten und erneut versuchen.");
-      return;
-    }
-    try {
-      await exportPrintDocumentToPdf(
-        pdfCaptureDraftRef.current,
-        `${newDoc.docNumber || "document"}.pdf`
-      );
-    } catch (err) {
-      console.error(err);
-      alert(
-        err instanceof Error ? `PDF-Export fehlgeschlagen: ${err.message}` : "PDF-Export fehlgeschlagen."
-      );
-    }
+  const generatePDF = () => {
+    printWithBrowserHint();
   };
 
-  const generateSavedDocumentPDF = async () => {
-    if (!pdfCaptureSavedRef.current || !openDocument) return;
-    try {
-      await exportPrintDocumentToPdf(
-        pdfCaptureSavedRef.current,
-        `${openDocument.docNumber || "document"}.pdf`
-      );
-    } catch (err) {
-      console.error(err);
-      alert(
-        err instanceof Error ? `PDF-Export fehlgeschlagen: ${err.message}` : "PDF-Export fehlgeschlagen."
-      );
-    }
+  const generateSavedDocumentPDF = () => {
+    printWithBrowserHint();
   };
 
   if (!token) {
@@ -1056,20 +1029,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 font-sans selection:bg-emerald-100 flex flex-col">
-      {view === "create-doc" && currentStep === 4 && (
-        <div className="pdf-capture-root" aria-hidden>
-          <DocumentPrintPreview
-            doc={buildDraftDocument(newDoc, profile)}
-            profile={profile}
-            innerRef={pdfCaptureDraftRef}
-          />
-        </div>
-      )}
-      {openDocument && (
-        <div className="pdf-capture-root" aria-hidden>
-          <DocumentPrintPreview doc={openDocument} profile={profile} innerRef={pdfCaptureSavedRef} />
-        </div>
-      )}
       {saveFeedback && (
         <div className="fixed top-4 right-4 z-[120] bg-emerald-600 text-white px-4 py-3 rounded-2xl shadow-xl shadow-emerald-200 flex items-center gap-2 text-sm font-bold">
           <CheckCircle2 className="w-5 h-5" />
@@ -1078,7 +1037,7 @@ export default function App() {
       )}
       {/* Navigation */}
       {view !== "onboarding" && (
-        <nav className="bg-white border-b border-stone-200 sticky top-0 z-50 print:hidden">
+        <nav className={`bg-white border-b border-stone-200 sticky top-0 z-50 ${printStyles.hideOnPrint}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16 items-center">
               <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView("dashboard")}>
@@ -1696,7 +1655,7 @@ export default function App() {
                       <button onClick={() => setCurrentStep(3)} className="px-6 py-3 font-bold text-stone-500 hover:text-stone-900 transition-colors">Zurück</button>
                       <button
                         type="button"
-                        onClick={() => void generatePDF()}
+                        onClick={generatePDF}
                         className="bg-stone-900 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-stone-800 transition-colors"
                       >
                         <Download className="w-5 h-5" /> PDF laden
@@ -2124,7 +2083,7 @@ export default function App() {
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => void generateSavedDocumentPDF()}
+                      onClick={generateSavedDocumentPDF}
                       className="inline-flex items-center gap-2 bg-stone-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-stone-800 transition-colors"
                     >
                       <Download className="w-4 h-4" /> PDF
@@ -2171,7 +2130,7 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
-      <footer className="border-t border-stone-200 bg-white py-4 mt-auto shrink-0">
+      <footer className={`border-t border-stone-200 bg-white py-4 mt-auto shrink-0 ${printStyles.hideOnPrint}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-stone-500">
           <Link to="/impressum" className="hover:text-stone-800 hover:underline">
             Impressum

@@ -1,0 +1,60 @@
+.hideOnPrint {}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  :global(html),
+  :global(body) {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .hideOnPrint {
+    display: none !important;
+  }
+
+  :global(nav),
+  :global(button),
+  :global(footer) {
+    display: none !important;
+  }
+
+  :global(.print-document) {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    max-width: 210mm !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
+    box-shadow: none !important;
+  }
+
+  /* Tabellenstruktur beim Drucken stabil halten */
+  :global(.print-document table) {
+    display: table !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+  }
+
+  :global(.print-document thead) {
+    display: table-header-group !important;
+  }
+
+  :global(.print-document tbody) {
+    display: table-row-group !important;
+  }
+
+  :global(.print-document tr) {
+    display: table-row !important;
+  }
+
+  :global(.print-document th),
+  :global(.print-document td) {
+    display: table-cell !important;
+    vertical-align: top !important;
+  }
+}
