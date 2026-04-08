@@ -323,7 +323,7 @@ function buildPdfDownloadFilename(docType: "offer" | "invoice", docNumber: strin
   return docType === "invoice" ? `Rechnung_${safe}.pdf` : `Angebot_${safe}.pdf`;
 }
 
-/** A4-PDF: Bild immer 190 mm breit, Höhe aus Canvas-Seitenverhältnis — kein 297 mm-Zwang auf die Bildhöhe, mehrseitig bei Bedarf. */
+/** A4-PDF: 190 mm Breite, Höhe aus getImageProperties (Screenshot-Seitenverhältnis); kein Fit auf 297 mm Bildhöhe. */
 async function downloadPDF(element: HTMLElement, filename: string) {
   const rect = element.getBoundingClientRect();
   if (rect.width < 2 || rect.height < 2) {
@@ -364,6 +364,9 @@ async function downloadPDF(element: HTMLElement, filename: string) {
         ac.style.opacity = "1";
         ac.style.visibility = "visible";
         ac.style.boxSizing = "border-box";
+        /* Nur für den Export: keine erzwungene A4-Höhe — Screenshot = reale Inhaltshöhe, kein „auseinanderziehen“ */
+        ac.style.minHeight = "0";
+        ac.style.height = "auto";
       }
     },
   });
@@ -373,29 +376,27 @@ async function downloadPDF(element: HTMLElement, filename: string) {
   }
 
   const imgData = canvas.toDataURL("image/png");
-  const imgWidth = 190;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
   const margin = 10;
 
   const pdf = new jsPDF("p", "mm", "a4");
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
 
-  const whitePage = () => {
-    pdf.setFillColor(255, 255, 255);
-    pdf.rect(0, 0, pageWidth, pageHeight, "F");
-  };
+  const imgProps = pdf.getImageProperties(imgData);
+  const pdfWidth = 190;
+  const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-  whitePage();
-  pdf.addImage(imgData, "PNG", margin, margin, imgWidth, imgHeight);
+  pdf.setFillColor(255, 255, 255);
+  pdf.rect(0, 0, pageWidth, pageHeight, "F");
+  pdf.addImage(imgData, "PNG", margin, margin, pdfWidth, pdfHeight);
 
-  let heightLeft = imgHeight + margin - pageHeight;
-
+  let heightLeft = pdfHeight + margin - pageHeight;
   while (heightLeft > 0) {
     const y = margin - heightLeft;
     pdf.addPage();
-    whitePage();
-    pdf.addImage(imgData, "PNG", margin, y, imgWidth, imgHeight);
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(0, 0, pageWidth, pageHeight, "F");
+    pdf.addImage(imgData, "PNG", margin, y, pdfWidth, pdfHeight);
     heightLeft -= pageHeight - margin;
   }
 
@@ -557,8 +558,6 @@ function DocumentPrintPreview({
           </table>
         </div>
         </div>
-
-        <div className="print-doc-flex-spacer" aria-hidden />
 
         <div className="print-doc-page-footer">
           <div className="print-doc-footer-rule" aria-hidden />

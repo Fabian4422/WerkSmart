@@ -74,16 +74,13 @@
   text-transform: none;
 }
 
-.a4-container .print-doc-flex-spacer {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
 .a4-container .print-doc-page-footer {
   flex: 0 0 auto;
   flex-shrink: 0;
   width: 100%;
   padding-top: 12px;
+  /* Sticky-Footer in der Vorschau — kein flex-grow-Zwischenelement, das den Screenshot in die Höhe zieht */
+  margin-top: auto;
 }
 
 .a4-container .print-doc-footer-rule {
