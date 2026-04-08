@@ -323,7 +323,7 @@ function buildPdfDownloadFilename(docType: "offer" | "invoice", docNumber: strin
   return docType === "invoice" ? `Rechnung_${safe}.pdf` : `Angebot_${safe}.pdf`;
 }
 
-/** A4-PDF aus html2canvas: 190 mm Bildbreite, proportionale Höhe (kein vertikales Strecken), Rest der Seite weiß. */
+/** A4-PDF: Bild immer 190 mm breit, Höhe aus Canvas-Seitenverhältnis — kein 297 mm-Zwang auf die Bildhöhe, mehrseitig bei Bedarf. */
 async function downloadPDF(element: HTMLElement, filename: string) {
   const rect = element.getBoundingClientRect();
   if (rect.width < 2 || rect.height < 2) {
@@ -373,30 +373,32 @@ async function downloadPDF(element: HTMLElement, filename: string) {
   }
 
   const imgData = canvas.toDataURL("image/png");
-  const pageWidthMm = 210;
-  const pageHeightMm = 297;
-  const imgXmm = 10;
-  const imgYmm = 10;
-  const imgWmm = 190;
-  let imgHeight = (canvas.height * imgWmm) / canvas.width;
+  const imgWidth = 190;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  const margin = 10;
 
-  const maxHmm = pageHeightMm - imgYmm;
-  let drawW = imgWmm;
-  let drawH = imgHeight;
-  if (drawH > maxHmm) {
-    const scale = maxHmm / drawH;
-    drawW *= scale;
-    drawH = maxHmm;
+  const pdf = new jsPDF("p", "mm", "a4");
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+
+  const whitePage = () => {
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(0, 0, pageWidth, pageHeight, "F");
+  };
+
+  whitePage();
+  pdf.addImage(imgData, "PNG", margin, margin, imgWidth, imgHeight);
+
+  let heightLeft = imgHeight + margin - pageHeight;
+
+  while (heightLeft > 0) {
+    const y = margin - heightLeft;
+    pdf.addPage();
+    whitePage();
+    pdf.addImage(imgData, "PNG", margin, y, imgWidth, imgHeight);
+    heightLeft -= pageHeight - margin;
   }
 
-  const pdf = new jsPDF({
-    orientation: "p",
-    unit: "mm",
-    format: [pageWidthMm, pageHeightMm],
-  });
-  pdf.setFillColor(255, 255, 255);
-  pdf.rect(0, 0, pageWidthMm, pageHeightMm, "F");
-  pdf.addImage(imgData, "PNG", imgXmm, imgYmm, drawW, drawH);
   pdf.save(filename);
 }
 
