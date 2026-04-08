@@ -1,14 +1,16 @@
+import { Link } from "react-router-dom";
+
 export default function ImprintPage() {
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 font-sans flex flex-col">
       <header className="border-b border-stone-200 bg-white shrink-0">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <a href="/" className="font-bold text-emerald-700 hover:underline">
+          <Link to="/" className="font-bold text-emerald-700 hover:underline">
             WerkSmart
-          </a>
-          <a href="/privacy" className="text-sm text-stone-600 hover:underline">
+          </Link>
+          <Link to="/datenschutz" className="text-sm text-stone-600 hover:underline">
             Datenschutz
-          </a>
+          </Link>
         </div>
       </header>
       <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-10">
@@ -33,12 +35,12 @@ export default function ImprintPage() {
       </main>
       <footer className="border-t border-stone-200 bg-white py-4 text-xs text-stone-500 shrink-0">
         <div className="max-w-2xl mx-auto px-4 flex flex-wrap gap-4 justify-center">
-          <a href="/imprint" className="hover:text-stone-800 hover:underline">
+          <Link to="/impressum" className="hover:text-stone-800 hover:underline">
             Impressum
-          </a>
-          <a href="/privacy" className="hover:text-stone-800 hover:underline">
+          </Link>
+          <Link to="/datenschutz" className="hover:text-stone-800 hover:underline">
             Datenschutz
-          </a>
+          </Link>
         </div>
       </footer>
     </div>

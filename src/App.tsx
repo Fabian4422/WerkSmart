@@ -38,8 +38,7 @@ import html2canvas from "html2canvas-pro";
 import { Profile, Service, Document, DocumentItem } from "./types";
 import Auth from "./components/Auth";
 import Landing from "./Landing";
-import ImprintPage from "./pages/Imprint";
-import PrivacyPage from "./pages/Privacy";
+import { Link } from "react-router-dom";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -627,6 +626,26 @@ const DEFAULT_DOC_LIST_QUERY: DocListQuery = {
   sortDir: "desc",
 };
 
+const STORAGE_KEYS = {
+  profile: "werksmart-profile",
+  services: "werksmart-services",
+  documents: "werksmart-documents",
+} as const;
+
+function loadJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveJson<T>(key: string, value: T) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
 /** Anzeige-Status aus gespeichertem Profil-Feld `status` (manuell gesetzt). */
 function displayDocumentStatus(doc: Document): DocStatus {
   const raw = (doc.status || "").trim().toLowerCase();
@@ -756,40 +775,13 @@ export default function App() {
       if (!token) return;
       if (!silent) setIsLoading(true);
       try {
-        const headers = { Authorization: `Bearer ${token}` };
-        const [pRes, sRes, dRes] = await Promise.all([
-          fetch("/api/profile", { headers, cache: "no-store" }),
-          fetch("/api/services", { headers, cache: "no-store" }),
-          fetch("/api/documents", { headers, cache: "no-store" }),
-        ]);
-
-        const unauthorized =
-          pRes.status === 401 ||
-          pRes.status === 403 ||
-          sRes.status === 401 ||
-          sRes.status === 403 ||
-          dRes.status === 401 ||
-          dRes.status === 403;
-
-        if (unauthorized) {
-          handleLogout();
-          return;
-        }
-
-        if (!pRes.ok) console.error("Profil laden fehlgeschlagen", pRes.status);
-        if (!sRes.ok) console.error("Leistungen laden fehlgeschlagen", sRes.status);
-        if (!dRes.ok) console.error("Dokumente laden fehlgeschlagen", dRes.status);
-
-        const pData = pRes.ok ? await pRes.json() : null;
-        const sData = sRes.ok ? await sRes.json() : null;
-        const dData = dRes.ok ? await dRes.json() : null;
-
-        const profile =
-          pData != null && typeof pData === "object" && !("error" in pData)
-            ? (pData as Profile)
-            : null;
-        const serviceList = Array.isArray(sData) ? sData.map(normalizeServiceRow) : [];
-        const documentList = Array.isArray(dData) ? dData.map(normalizeDocumentRow) : [];
+        const profile = loadJson<Profile | null>(STORAGE_KEYS.profile, null);
+        const serviceRaw = loadJson<any[]>(STORAGE_KEYS.services, []);
+        const documentRaw = loadJson<any[]>(STORAGE_KEYS.documents, []);
+        const serviceList = Array.isArray(serviceRaw) ? serviceRaw.map(normalizeServiceRow) : [];
+        const documentList = Array.isArray(documentRaw)
+          ? documentRaw.map(normalizeDocumentRow)
+          : [];
 
         setProfile(profile);
         setServices(serviceList);
@@ -804,7 +796,7 @@ export default function App() {
         if (!silent) setIsLoading(false);
       }
     },
-    [token, handleLogout]
+    [token]
   );
 
   useEffect(() => {
@@ -842,22 +834,7 @@ export default function App() {
   };
 
   const handleSaveProfile = async (data: Profile) => {
-    const res = await fetch("/api/profile", {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify(data),
-      cache: "no-store",
-    });
-    const payload = await res.json().catch(() => ({} as any));
-    if (!res.ok) {
-      const msg = payload?.error || "Fehler beim Speichern der Stammdaten.";
-      alert(msg);
-      throw new Error(msg);
-    }
-
+    saveJson(STORAGE_KEYS.profile, data);
     setProfile(data);
     setSaveFeedback("Gespeichert");
     window.setTimeout(() => setSaveFeedback(null), 2200);
@@ -867,38 +844,27 @@ export default function App() {
   const handleLogoFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file || !token) return;
+    if (!file) return;
     try {
-      const fd = new FormData();
-      fd.append("logo", file);
-      const res = await fetch("/api/profile/logo", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
+      const dataUrl = await compressImageToDataUrl(file);
+      setProfile((p) => {
+        if (!p) return p;
+        const next = { ...p, logoUrl: dataUrl };
+        saveJson(STORAGE_KEYS.profile, next);
+        return next;
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; logoUrl?: string };
-      if (!res.ok) throw new Error(data.error || "Upload fehlgeschlagen.");
-      if (data.logoUrl) setProfile((p) => (p ? { ...p, logoUrl: data.logoUrl } : p));
     } catch (err) {
       alert(err instanceof Error ? err.message : "Upload fehlgeschlagen.");
     }
   };
 
   const handleRemoveLogo = async () => {
-    if (!token || !profile) return;
+    if (!profile) return;
     if (!profile.logoUrl) return;
     if (!confirm("Firmenlogo wirklich entfernen?")) return;
-    try {
-      const res = await fetch("/api/profile/logo", {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(data.error || "Entfernen fehlgeschlagen.");
-      setProfile((p) => (p ? { ...p, logoUrl: undefined } : p));
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Entfernen fehlgeschlagen.");
-    }
+    const next = { ...profile, logoUrl: undefined };
+    setProfile(next);
+    saveJson(STORAGE_KEYS.profile, next);
   };
 
   const [isSavingService, setIsSavingService] = useState(false);
@@ -908,26 +874,20 @@ export default function App() {
     setIsSavingService(true);
     setServiceError(null);
     try {
-      const method = service.id ? "PUT" : "POST";
-      const url = service.id ? `/api/services/${service.id}` : "/api/services";
-      
-      const res = await fetch(url, {
-        method,
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(service)
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Fehler beim Speichern");
-      }
-      
+      const current = loadJson<Service[]>(STORAGE_KEYS.services, []);
+      const clean: Service = {
+        id: service.id ?? Date.now(),
+        title: String(service.title ?? "").trim(),
+        unit: String(service.unit ?? "Std").trim() || "Std",
+        price: Number(service.price ?? 0) || 0,
+      };
+      const next = service.id
+        ? current.map((s) => (s.id === service.id ? clean : s))
+        : [...current, clean];
+      saveJson(STORAGE_KEYS.services, next);
+      setServices(next.map(normalizeServiceRow));
       setIsServiceModalOpen(false);
       setEditingService(null);
-      await fetchData(true);
     } catch (err) {
       console.error("Save service error:", err);
       setServiceError(err instanceof Error ? err.message : "Fehler beim Speichern der Leistung.");
@@ -938,63 +898,32 @@ export default function App() {
 
   const handleDeleteService = async (id: number) => {
     if (!confirm("Möchten Sie diese Leistung wirklich löschen?")) return;
-    await fetch(`/api/services/${id}`, { 
-      method: "DELETE",
-      headers: { "Authorization": `Bearer ${token}` }
-    });
-    fetchData();
+    const current = loadJson<Service[]>(STORAGE_KEYS.services, []);
+    const next = current.filter((s) => s.id !== id);
+    saveJson(STORAGE_KEYS.services, next);
+    setServices(next.map(normalizeServiceRow));
   };
 
   const handleDeleteDocument = async (docId: number) => {
-    if (!token) return;
     if (
       !confirm(
         "Möchten Sie dieses Dokument endgültig löschen? Dies lässt sich nicht rückgängig machen."
       )
     )
       return;
-    try {
-      const res = await fetch(`/api/documents/${docId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      });
-      const payload = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        alert(payload.error || "Löschen fehlgeschlagen.");
-        return;
-      }
-      setOpenDocument((d) => (d?.id === docId ? null : d));
-      await fetchData(true);
-    } catch (err) {
-      console.error(err);
-      alert("Löschen fehlgeschlagen.");
-    }
+    const current = loadJson<Document[]>(STORAGE_KEYS.documents, []);
+    const next = current.filter((d) => d.id !== docId);
+    saveJson(STORAGE_KEYS.documents, next);
+    setDocuments(next.map(normalizeDocumentRow));
+    setOpenDocument((d) => (d?.id === docId ? null : d));
   };
 
   const handleDocumentStatusChange = async (docId: number, status: DocStatus) => {
-    if (!token) return;
-    try {
-      const res = await fetch(`/api/documents/${docId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status }),
-        cache: "no-store",
-      });
-      const payload = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        alert(payload.error || "Status konnte nicht gespeichert werden.");
-        return;
-      }
-      setDocuments((prev) => prev.map((d) => (d.id === docId ? { ...d, status } : d)));
-      setOpenDocument((d) => (d?.id === docId ? { ...d, status } : d));
-    } catch (err) {
-      console.error(err);
-      alert("Status konnte nicht gespeichert werden.");
-    }
+    const current = loadJson<Document[]>(STORAGE_KEYS.documents, []);
+    const next = current.map((d) => (d.id === docId ? { ...d, status } : d));
+    saveJson(STORAGE_KEYS.documents, next);
+    setDocuments(next.map(normalizeDocumentRow));
+    setOpenDocument((d) => (d?.id === docId ? { ...d, status } : d));
   };
 
   const resetDocumentDraft = () => {
@@ -1062,22 +991,14 @@ export default function App() {
       status: "offen" as const,
     };
 
-    const res = await fetch("/api/documents", {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify(docData)
-    });
-
-    if (!res.ok) {
-      const payload = await res.json().catch(() => ({} as any));
-      alert(payload?.error || "Dokument speichern fehlgeschlagen.");
-      return;
-    }
-
-    await fetchData(true);
+    const current = loadJson<Document[]>(STORAGE_KEYS.documents, []);
+    const nextDoc: Document = {
+      ...(docData as Document),
+      id: Date.now(),
+    };
+    const next = [nextDoc, ...current];
+    saveJson(STORAGE_KEYS.documents, next);
+    setDocuments(next.map(normalizeDocumentRow));
     setView("dashboard");
     resetDocumentDraft();
   };
@@ -1114,14 +1035,6 @@ export default function App() {
       );
     }
   };
-
-  const legalPath = typeof window !== "undefined" ? window.location.pathname : "";
-  if (legalPath === "/imprint") {
-    return <ImprintPage />;
-  }
-  if (legalPath === "/privacy") {
-    return <PrivacyPage />;
-  }
 
   if (!token) {
     if (preAuthView === "landing") {
@@ -2260,12 +2173,12 @@ export default function App() {
       </main>
       <footer className="border-t border-stone-200 bg-white py-4 mt-auto shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-stone-500">
-          <a href="/imprint" className="hover:text-stone-800 hover:underline">
+          <Link to="/impressum" className="hover:text-stone-800 hover:underline">
             Impressum
-          </a>
-          <a href="/privacy" className="hover:text-stone-800 hover:underline">
+          </Link>
+          <Link to="/datenschutz" className="hover:text-stone-800 hover:underline">
             Datenschutz
-          </a>
+          </Link>
         </div>
       </footer>
     </div>

@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { Briefcase, Mail, Lock, ArrowRight, UserPlus, LogIn } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { Link } from "react-router-dom";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -91,7 +92,7 @@ export default function Auth({ onAuth }: AuthProps) {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4 font-sans">
+    <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4 font-sans flex-col">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -266,6 +267,14 @@ export default function Auth({ onAuth }: AuthProps) {
           </div>
         )}
       </motion.div>
+      <footer className="mt-8 text-xs text-stone-500 flex items-center gap-5">
+        <Link to="/impressum" className="hover:text-stone-800 hover:underline">
+          Impressum
+        </Link>
+        <Link to="/datenschutz" className="hover:text-stone-800 hover:underline">
+          Datenschutz
+        </Link>
+      </footer>
     </div>
   );
 }

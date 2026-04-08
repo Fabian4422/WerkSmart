@@ -1,5 +1,6 @@
 import React from "react";
 import { Briefcase, CheckCircle2, FileText } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function Landing({ onLoginClick }: { onLoginClick: () => void }) {
   return (
@@ -77,12 +78,12 @@ export default function Landing({ onLoginClick }: { onLoginClick: () => void }) 
         <div className="max-w-6xl mx-auto px-4 py-4 flex flex-wrap items-center gap-4 justify-between">
           <span>© {new Date().getFullYear()} WerkSmart</span>
           <div className="flex flex-wrap items-center gap-4">
-            <a href="/imprint" className="hover:text-stone-800 hover:underline">
+            <Link to="/impressum" className="hover:text-stone-800 hover:underline">
               Impressum
-            </a>
-            <a href="/privacy" className="hover:text-stone-800 hover:underline">
+            </Link>
+            <Link to="/datenschutz" className="hover:text-stone-800 hover:underline">
               Datenschutz
-            </a>
+            </Link>
           </div>
         </div>
       </footer>
