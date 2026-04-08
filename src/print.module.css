@@ -56,5 +56,39 @@
   :global(.print-document td) {
     display: table-cell !important;
     vertical-align: top !important;
+    padding: 8px 4px !important;
+  }
+
+  :global(.print-items-table) {
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  :global(.print-items-table .col-pos) {
+    width: 40px !important;
+    text-align: left !important;
+  }
+
+  :global(.print-items-table .col-beschreibung) {
+    width: auto !important;
+    text-align: left !important;
+  }
+
+  :global(.print-items-table .col-menge) {
+    width: 80px !important;
+    text-align: right !important;
+    white-space: nowrap !important;
+  }
+
+  :global(.print-items-table .col-preis) {
+    width: 100px !important;
+    text-align: right !important;
+    white-space: nowrap !important;
+  }
+
+  :global(.print-items-table .col-gesamt) {
+    width: 100px !important;
+    text-align: right !important;
+    white-space: nowrap !important;
   }
 }

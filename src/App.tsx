@@ -447,7 +447,7 @@ function DocumentPrintPreview({
   return (
     <div ref={innerRef} className="print-document bg-white text-stone-800 max-w-none">
       <div style={{ width: W, maxWidth: W }}>
-        <table className="mb-12 border-collapse" style={{ width: W, tableLayout: "fixed" }}>
+        <table className="mb-12 border-collapse print-items-table" style={{ width: W, tableLayout: "fixed" }}>
           <tbody>
             <tr>
               <td className="align-top pb-0" style={{ width: W - 120, verticalAlign: "top" }}>
@@ -517,25 +517,25 @@ function DocumentPrintPreview({
           </colgroup>
           <thead>
             <tr className="border-b-2 border-stone-900 text-left text-[10px] font-bold uppercase tracking-widest text-stone-400">
-              <th className="py-2">Pos.</th>
-              <th className="py-2">Leistung</th>
-              <th className="py-2 text-right">Menge</th>
-              <th className="py-2 text-right">E-Preis</th>
-              <th className="py-2 text-right">Gesamt</th>
+              <th className="col-pos">Pos.</th>
+              <th className="col-beschreibung">Leistung</th>
+              <th className="col-menge">Menge</th>
+              <th className="col-preis">E-Preis</th>
+              <th className="col-gesamt">Gesamt</th>
             </tr>
           </thead>
           <tbody>
             {(doc.items || []).map((item, i) => (
               <tr key={i} className="border-b border-stone-100 text-sm">
-                <td className="py-4 text-stone-400 align-top">{i + 1}</td>
-                <td className="py-4 font-semibold align-top">{item.title}</td>
-                <td className="py-4 text-right align-top tabular-nums">
+                <td className="col-pos text-stone-400 align-top">{i + 1}</td>
+                <td className="col-beschreibung font-semibold align-top">{item.title}</td>
+                <td className="col-menge align-top tabular-nums">
                   {item.quantity} {item.unit}
                 </td>
-                <td className="py-4 text-right tabular-nums align-top">
+                <td className="col-preis tabular-nums align-top">
                   {item.price.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €
                 </td>
-                <td className="py-4 text-right font-bold tabular-nums align-top">
+                <td className="col-gesamt font-bold tabular-nums align-top">
                   {item.total.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €
                 </td>
               </tr>
