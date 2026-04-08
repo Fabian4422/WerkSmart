@@ -41,11 +41,37 @@
 
 .a4-container .print-doc-items-table th,
 .a4-container .print-doc-items-table td {
-  padding: 10px 8px;
+  padding: 12px 8px;
 }
 
 .a4-container .print-doc-items-table thead th {
   font-size: 12pt;
+}
+
+.a4-container .print-doc-items-thead-row th {
+  font-weight: 700;
+  color: #000000;
+  letter-spacing: 0.04em;
+}
+
+.a4-container .print-doc-items-thead-row th.print-doc-th-pos {
+  white-space: nowrap;
+  padding-right: 12px;
+  text-transform: none;
+}
+
+.a4-container .print-doc-items-thead-row th.col-beschreibung {
+  padding-left: 8px;
+  text-transform: none;
+}
+
+.a4-container .print-doc-items-thead-row th.col-menge,
+.a4-container .print-doc-items-thead-row th.col-gesamt {
+  text-transform: uppercase;
+}
+
+.a4-container .print-doc-items-thead-row th.print-doc-th-preis {
+  text-transform: none;
 }
 
 .a4-container .print-doc-flex-spacer {
@@ -66,44 +92,44 @@
   margin: 0 0 12px 0;
 }
 
-/* Kopf: Absender (Name, Rechtsform, Kontakt) — gleich in Vorschau & PDF */
+/* Kopf: Absender — luftige Zeilen (Vorschau = PDF) */
 .a4-container .print-doc-sender-block {
-  line-height: 1.55;
+  line-height: 1.8;
 }
 
 .a4-container .print-doc-sender-block .print-doc-h3 {
-  line-height: 1.55;
+  line-height: 1.8;
   margin: 0 0 0.35em 0;
 }
 
 .a4-container .print-doc-sender-block > p {
-  line-height: 1.55;
+  line-height: 1.8;
   margin: 0 0 0.35em 0;
 }
 
 .a4-container .print-doc-sender-block .print-doc-sender-contact {
   margin-top: 0.85em;
-  line-height: 1.55;
+  line-height: 1.8;
+  margin-bottom: 10mm;
 }
 
 .a4-container .print-doc-sender-block .print-doc-sender-contact p {
-  line-height: 1.55;
+  line-height: 1.8;
   margin: 0 0 0.3em 0;
 }
 
-/* 8 mm zwischen Absendertabelle und Empfänger */
 .a4-container .print-doc-recipient-block {
-  margin-top: 8mm;
+  margin-top: 0;
   margin-bottom: 3rem;
   width: 100%;
 }
 
 .a4-container .print-doc-recipient-block .print-doc-recipient-lines {
-  line-height: 1.4;
+  line-height: 1.6;
 }
 
 .a4-container .print-doc-recipient-block .print-doc-recipient-lines > p {
-  line-height: 1.4;
+  line-height: 1.6;
   margin: 0 0 0.35em 0;
 }
 
@@ -112,13 +138,17 @@
 }
 
 .a4-container .print-doc-recipient-name {
-  line-height: 1.4;
+  line-height: 1.6;
 }
 
-/* Angebot / Rechnung — Abstand oben/unten */
+/* 12 mm vor ANGEBOT / Rechnung-Titel */
+.a4-container .print-doc-title-table {
+  margin-top: 12mm;
+}
+
 .a4-container .print-doc-title-doc {
-  margin-top: 5mm;
-  margin-bottom: 5mm;
+  margin-top: 8mm;
+  margin-bottom: 8mm;
 }
 
 .a4-container .print-doc-h3 {

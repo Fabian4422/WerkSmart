@@ -316,6 +316,13 @@ async function waitForImagesInElement(el: HTMLElement) {
   );
 }
 
+/** Dateiname für PDF-Download (ohne Druckdialog), z. B. Angebot_ANG-123.pdf */
+function buildPdfDownloadFilename(docType: "offer" | "invoice", docNumber: string | undefined | null) {
+  const raw = String(docNumber ?? "ENTWURF").trim() || "ENTWURF";
+  const safe = raw.replace(/[/\\?%*:|"<>]/g, "-");
+  return docType === "invoice" ? `Rechnung_${safe}.pdf` : `Angebot_${safe}.pdf`;
+}
+
 /** Raster der A4-Vorschau (210 mm) in eine A4-PDF-Seite — gleiches Seitenverhältnis, max. eine Seite sichtbar. */
 async function downloadPDF(element: HTMLElement, filename: string) {
   const rect = element.getBoundingClientRect();
@@ -398,8 +405,8 @@ function DocumentPrintPreview({
   innerRef: RefObject<HTMLDivElement | null>;
 }) {
   const W = PRINT_CONTENT_WIDTH_PX;
-  const colPos = 40;
-  const colTitle = 358;
+  const colPos = 52;
+  const colTitle = 346;
   const colQty = 78;
   const colPrice = 85;
   const colTotal = 82;
@@ -455,7 +462,7 @@ function DocumentPrintPreview({
           </div>
         </div>
 
-        <table className="mb-8 border-collapse" style={{ width: "100%", tableLayout: "fixed" }}>
+        <table className="mb-8 border-collapse print-doc-title-table" style={{ width: "100%", tableLayout: "fixed" }}>
           <tbody>
             <tr>
               <td className="align-bottom" style={{ verticalAlign: "bottom" }}>
@@ -481,11 +488,13 @@ function DocumentPrintPreview({
             <col style={{ width: colTotal }} />
           </colgroup>
           <thead>
-            <tr className="border-b-2 border-stone-900 text-left font-bold uppercase tracking-widest text-stone-400">
-              <th className="col-pos">Pos.</th>
+            <tr className="print-doc-items-thead-row border-b-2 border-stone-900 text-left">
+              <th className="col-pos print-doc-th-pos">
+                Pos.{"\u00a0"}
+              </th>
               <th className="col-beschreibung">Leistung</th>
               <th className="col-menge">Menge</th>
-              <th className="col-preis">E-Preis</th>
+              <th className="col-preis print-doc-th-preis">Preis</th>
               <th className="col-gesamt">Gesamt</th>
             </tr>
           </thead>
@@ -973,15 +982,14 @@ export default function App() {
 
   const generatePDF = () => {
     if (!previewRef.current) return;
-    void downloadPDF(previewRef.current, newDoc.type === "invoice" ? "Rechnung.pdf" : "Angebot.pdf");
+    const kind = newDoc.type === "invoice" ? "invoice" : "offer";
+    void downloadPDF(previewRef.current, buildPdfDownloadFilename(kind, newDoc.docNumber));
   };
 
   const generateSavedDocumentPDF = () => {
     if (!documentDetailPreviewRef.current || !openDocument) return;
-    void downloadPDF(
-      documentDetailPreviewRef.current,
-      openDocument.type === "invoice" ? "Rechnung.pdf" : "Angebot.pdf"
-    );
+    const kind = openDocument.type === "invoice" ? "invoice" : "offer";
+    void downloadPDF(documentDetailPreviewRef.current, buildPdfDownloadFilename(kind, openDocument.docNumber));
   };
 
   if (!token) {
