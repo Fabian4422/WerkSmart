@@ -15,7 +15,8 @@
   max-width: 800px;
   min-height: 297mm;
   box-sizing: border-box;
-  padding: 45px;
+  /* Unten etwas mehr Rand (~18 mm), damit Fußzeile zur A4-Kante passt */
+  padding: 45px 45px 68px 45px;
   margin: 20px auto;
   background: #fff;
   box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
@@ -24,6 +25,50 @@
   line-height: 1.45;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Innenspalte: Leerraum zwischen Hauptinhalt und Fuß (Sticky-Footer auf A4) */
+.print-document .print-doc-inner {
+  width: 100%;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  /* Höhe = A4-Innenfläche (min-height der Seite abzüglich top/bottom-Padding, vgl. .print-document) */
+  min-height: calc(297mm - 45px - 68px);
+}
+
+.print-document .print-doc-main-flow {
+  flex: 0 1 auto;
+}
+
+.print-document .print-doc-page-footer {
+  flex: 0 0 auto;
+  width: 100%;
+  padding-top: 12px;
+}
+
+.print-document .print-doc-footer-rule {
+  border-top: 1px solid #eeeeee;
+  width: 100%;
+  margin: 0 0 12px 0;
+}
+
+/* Leistungstabelle: Lesbarkeit + Zeilenabstand */
+.print-document table.print-doc-items-table {
+  font-size: 12pt;
+  line-height: 1.45;
+}
+
+.print-document table.print-doc-items-table th,
+.print-document table.print-doc-items-table td {
+  padding: 12px 8px;
+}
+
+.print-document table.print-doc-items-table thead th {
+  font-size: 12pt;
 }
 
 .print-document .print-doc-h3 {

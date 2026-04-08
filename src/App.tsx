@@ -422,8 +422,9 @@ function DocumentPrintPreview({
 
   return (
     <div ref={innerRef} className="print-document bg-white text-stone-800 max-w-none">
-      <div style={{ width: W, maxWidth: W }}>
-        <table className="mb-12 border-collapse print-items-table" style={{ width: W, tableLayout: "fixed" }}>
+      <div className="print-doc-inner" style={{ width: W, maxWidth: W }}>
+        <div className="print-doc-main-flow">
+        <table className="mb-12 border-collapse" style={{ width: W, tableLayout: "fixed" }}>
           <tbody>
             <tr>
               <td className="align-top pb-0" style={{ width: W - 120, verticalAlign: "top" }}>
@@ -483,7 +484,7 @@ function DocumentPrintPreview({
           </tbody>
         </table>
 
-        <table className="mb-12 border-collapse" style={{ width: W, tableLayout: "fixed" }}>
+        <table className="mb-12 border-collapse print-doc-items-table" style={{ width: W, tableLayout: "fixed" }}>
           <colgroup>
             <col style={{ width: colPos }} />
             <col style={{ width: colTitle }} />
@@ -492,7 +493,7 @@ function DocumentPrintPreview({
             <col style={{ width: colTotal }} />
           </colgroup>
           <thead>
-            <tr className="border-b-2 border-stone-900 text-left print-doc-micro font-bold uppercase tracking-widest text-stone-400">
+            <tr className="border-b-2 border-stone-900 text-left font-bold uppercase tracking-widest text-stone-400">
               <th className="col-pos">Pos.</th>
               <th className="col-beschreibung">Leistung</th>
               <th className="col-menge">Menge</th>
@@ -552,26 +553,31 @@ function DocumentPrintPreview({
           </table>
         </div>
 
-        <table className="mt-12 border-collapse border-t border-stone-100" style={{ width: W, tableLayout: "fixed" }}>
-          <tbody>
-            <tr>
-              <td className="align-top print-doc-micro text-stone-400 pt-8 align-top" style={{ width: colFooter, verticalAlign: "top", paddingTop: 32 }}>
-                <p className="font-bold text-stone-600 uppercase mb-1">Bankverbindung</p>
-                <p>{profile?.bankName}</p>
-                <p>IBAN: {profile?.iban}</p>
-                <p>BIC: {profile?.bic}</p>
-              </td>
-              <td className="align-top print-doc-micro text-stone-400 text-right pt-8 align-top" style={{ width: W - colFooter, verticalAlign: "top", paddingTop: 32 }}>
-                <p className="font-bold text-stone-600 uppercase mb-1">Steuerdaten</p>
-                <p>Steuernummer: {profile?.taxNumber}</p>
-                {profile?.vatId && <p>USt-ID: {profile.vatId}</p>}
-                {profile?.isSmallBusiness && (
-                  <p className="italic mt-1">Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.</p>
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        </div>
+
+        <div className="print-doc-page-footer">
+          <div className="print-doc-footer-rule" aria-hidden />
+          <table className="border-collapse" style={{ width: W, tableLayout: "fixed" }}>
+            <tbody>
+              <tr>
+                <td className="align-top print-doc-micro text-stone-400 align-top" style={{ width: colFooter, verticalAlign: "top" }}>
+                  <p className="font-bold text-stone-600 uppercase mb-1">Bankverbindung</p>
+                  <p>{profile?.bankName}</p>
+                  <p>IBAN: {profile?.iban}</p>
+                  <p>BIC: {profile?.bic}</p>
+                </td>
+                <td className="align-top print-doc-micro text-stone-400 text-right align-top" style={{ width: W - colFooter, verticalAlign: "top" }}>
+                  <p className="font-bold text-stone-600 uppercase mb-1">Steuerdaten</p>
+                  <p>Steuernummer: {profile?.taxNumber}</p>
+                  {profile?.vatId && <p>USt-ID: {profile.vatId}</p>}
+                  {profile?.isSmallBusiness && (
+                    <p className="italic mt-1">Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.</p>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -979,14 +985,14 @@ export default function App() {
 
   const generatePDF = () => {
     if (!previewRef.current) return;
-    void downloadPDF(previewRef.current, `${newDoc.docNumber || "document"}.pdf`);
+    void downloadPDF(previewRef.current, newDoc.type === "invoice" ? "Rechnung.pdf" : "Angebot.pdf");
   };
 
   const generateSavedDocumentPDF = () => {
     if (!documentDetailPreviewRef.current || !openDocument) return;
     void downloadPDF(
       documentDetailPreviewRef.current,
-      `${openDocument.docNumber || "document"}.pdf`
+      openDocument.type === "invoice" ? "Rechnung.pdf" : "Angebot.pdf"
     );
   };
 
