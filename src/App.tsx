@@ -39,7 +39,6 @@ import { Profile, Service, Document, DocumentItem } from "./types";
 import Auth from "./components/Auth";
 import Landing from "./Landing";
 import { Link } from "react-router-dom";
-import printStyles from "./print.module.css";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -48,14 +47,6 @@ function cn(...inputs: ClassValue[]) {
 function roundMoney(value: number): number {
   // Kaufmännisch auf 2 Nachkommastellen runden
   return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-/** System-Druck: Browser-Kopf-/Fußzeilen lassen sich per CSS nicht abschalten. */
-function printWithBrowserHint() {
-  window.alert(
-    'PDF: Im Druckdialog „Als PDF speichern“ (oder „Microsoft Print to PDF“) wählen.\n\nTipp: „Kopf- und Fußzeilen“ (Chrome/Edge) bzw. „Headers and Footers“ deaktivieren, damit kein Datum oder keine URL auf dem PDF erscheint.'
-  );
-  window.print();
 }
 
 /** Verkleinert Bilder für Base64 im Profil (Onboarding), damit das JSON-Limit nicht reißt. */
@@ -328,11 +319,8 @@ async function waitForImagesInElement(el: HTMLElement) {
   );
 }
 
-/**
- * PDF aus dem versteckten `.print-document`: festes A4 (210×297 mm pro Seite), Inhalt 1:1 aus dem Canvas
- * (keine dynamische Seitenhöhe). Längere Dokumente werden oben→unten auf mehrere A4-Seiten verteilt.
- */
-async function exportPrintDocumentToPdf(element: HTMLElement, filename: string) {
+/** 1:1 Screenshot der Dokumentenansicht als PDF (Desktop-Breite erzwungen). */
+async function downloadPDF(element: HTMLElement, filename: string) {
   const rect = element.getBoundingClientRect();
   if (rect.width < 2 || rect.height < 2) {
     throw new Error(
@@ -352,78 +340,58 @@ async function exportPrintDocumentToPdf(element: HTMLElement, filename: string) 
 
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-  const canvas = await html2canvas(element, {
-    scale: PDF_CAPTURE_SCALE,
-    useCORS: true,
-    allowTaint: false,
-    foreignObjectRendering: false,
-    backgroundColor: "#ffffff",
-    logging: false,
-    imageTimeout: 15000,
-    scrollX: -window.scrollX,
-    scrollY: -window.scrollY,
-    onclone: (clonedDoc) => {
-      replaceOklchColors(clonedDoc);
-      snapshotPrintDocumentStyles(clonedDoc);
-      const pd = clonedDoc.querySelector(".print-document") as HTMLElement | null;
-      if (pd) {
-        pd.style.boxShadow = "none";
-        pd.style.outline = "none";
-        pd.style.opacity = "1";
-        pd.style.visibility = "visible";
-        pd.style.width = `${PRINT_PAGE_WIDTH_PX}px`;
-        pd.style.maxWidth = `${PRINT_PAGE_WIDTH_PX}px`;
-        pd.style.minHeight = `${PRINT_PAGE_MIN_HEIGHT_PX}px`;
-        pd.style.boxSizing = "border-box";
-        pd.style.padding = `${PRINT_PAGE_PADDING_PX}px`;
-        pd.style.margin = "0";
-      }
-    },
-  });
+  const prevWidth = element.style.width;
+  const prevMaxWidth = element.style.maxWidth;
+  const prevMinWidth = element.style.minWidth;
+
+  element.style.width = "800px";
+  element.style.maxWidth = "800px";
+  element.style.minWidth = "800px";
+
+  let canvas: HTMLCanvasElement;
+  try {
+    canvas = await html2canvas(element, {
+      scale: PDF_CAPTURE_SCALE,
+      useCORS: true,
+      allowTaint: false,
+      foreignObjectRendering: false,
+      backgroundColor: "#ffffff",
+      logging: false,
+      imageTimeout: 15000,
+      scrollX: -window.scrollX,
+      scrollY: -window.scrollY,
+      windowWidth: 800,
+      onclone: (clonedDoc) => {
+        replaceOklchColors(clonedDoc);
+        snapshotPrintDocumentStyles(clonedDoc);
+        const pd = clonedDoc.querySelector(".print-document") as HTMLElement | null;
+        if (pd) {
+          pd.style.boxShadow = "none";
+          pd.style.outline = "none";
+          pd.style.opacity = "1";
+          pd.style.visibility = "visible";
+          pd.style.width = "800px";
+          pd.style.maxWidth = "800px";
+          pd.style.minWidth = "800px";
+          pd.style.boxSizing = "border-box";
+        }
+      },
+    });
+  } finally {
+    element.style.width = prevWidth;
+    element.style.maxWidth = prevMaxWidth;
+    element.style.minWidth = prevMinWidth;
+  }
 
   if (!canvas.width || !canvas.height) {
     throw new Error("PDF-Export: Das gerenderte Bild ist leer (0×0).");
   }
 
-  const A4_W_MM = 210;
-  const A4_H_MM = 297;
-
-  const pageWidthPx = canvas.width;
-  /** Eine PDF-Seite entspricht exakt A4-Seitenverhältnis: Höhe/Breite = 297/210 */
-  const pageHeightPx = Math.round((pageWidthPx * A4_H_MM) / A4_W_MM);
-  if (pageHeightPx <= 0) {
-    throw new Error("PDF-Export: Ungültige Seitenhöhe.");
-  }
-
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-
-  const sliceCanvas = document.createElement("canvas");
-  sliceCanvas.width = pageWidthPx;
-  sliceCanvas.height = pageHeightPx;
-  const sctx = sliceCanvas.getContext("2d");
-  if (!sctx) {
-    throw new Error("PDF-Export: Canvas-Kontext nicht verfügbar.");
-  }
-
-  let yPx = 0;
-  let pageIndex = 0;
-  while (yPx < canvas.height) {
-    if (pageIndex > 0) {
-      pdf.addPage();
-    }
-
-    const sliceSourceH = Math.min(pageHeightPx, canvas.height - yPx);
-
-    sctx.fillStyle = "#ffffff";
-    sctx.fillRect(0, 0, pageWidthPx, pageHeightPx);
-    sctx.drawImage(canvas, 0, yPx, pageWidthPx, sliceSourceH, 0, 0, pageWidthPx, sliceSourceH);
-
-    const imgData = sliceCanvas.toDataURL("image/png");
-    pdf.addImage(imgData, "PNG", 0, 0, A4_W_MM, A4_H_MM);
-    yPx += sliceSourceH;
-    pageIndex += 1;
-  }
-
+  const pageWidthMm = 210;
+  const imgHeightMm = (canvas.height * pageWidthMm) / canvas.width;
+  const pdf = new jsPDF({ unit: "mm", format: [pageWidthMm, imgHeightMm] });
+  const imgData = canvas.toDataURL("image/png");
+  pdf.addImage(imgData, "PNG", 0, 0, pageWidthMm, imgHeightMm);
   pdf.save(filename);
 }
 
@@ -1002,11 +970,16 @@ export default function App() {
   };
 
   const generatePDF = () => {
-    printWithBrowserHint();
+    if (!previewRef.current) return;
+    void downloadPDF(previewRef.current, `${newDoc.docNumber || "document"}.pdf`);
   };
 
   const generateSavedDocumentPDF = () => {
-    printWithBrowserHint();
+    if (!documentDetailPreviewRef.current || !openDocument) return;
+    void downloadPDF(
+      documentDetailPreviewRef.current,
+      `${openDocument.docNumber || "document"}.pdf`
+    );
   };
 
   if (!token) {
@@ -1037,7 +1010,7 @@ export default function App() {
       )}
       {/* Navigation */}
       {view !== "onboarding" && (
-        <nav className={`bg-white border-b border-stone-200 sticky top-0 z-50 ${printStyles.hideOnPrint}`}>
+        <nav className="bg-white border-b border-stone-200 sticky top-0 z-50 print:hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16 items-center">
               <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView("dashboard")}>
@@ -1660,7 +1633,7 @@ export default function App() {
                       >
                         <Download className="w-5 h-5" /> PDF laden
                       </button>
-                      <button onClick={() => printWithBrowserHint()} className="bg-stone-100 text-stone-900 px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-stone-200 transition-colors">
+                      <button onClick={() => window.print()} className="bg-stone-100 text-stone-900 px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-stone-200 transition-colors">
                         <Printer className="w-5 h-5" /> Drucken
                       </button>
                       <button onClick={handleCreateDocument} className="bg-emerald-600 text-white px-10 py-3 rounded-xl font-bold shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all hover:-translate-y-1">
@@ -2090,7 +2063,7 @@ export default function App() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => printWithBrowserHint()}
+                      onClick={() => window.print()}
                       className="inline-flex items-center gap-2 bg-stone-100 text-stone-900 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-stone-200 transition-colors"
                     >
                       <Printer className="w-4 h-4" /> Drucken
@@ -2130,7 +2103,7 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
-      <footer className={`border-t border-stone-200 bg-white py-4 mt-auto shrink-0 ${printStyles.hideOnPrint}`}>
+      <footer className="border-t border-stone-200 bg-white py-4 mt-auto shrink-0 print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-stone-500">
           <Link to="/impressum" className="hover:text-stone-800 hover:underline">
             Impressum
