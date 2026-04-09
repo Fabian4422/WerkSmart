@@ -42,8 +42,10 @@
   color: #000;
 }
 
-.pdf-content-inner {
-  display: block;
+/* Flex: Footer bleibt unten, ist aber im Fluss → html2canvas erfasst Bankzeile + Linie. */
+.pdf-content .a4-container.pdf-content-inner {
+  display: flex;
+  flex-direction: column;
   position: relative;
   width: 100%;
   padding: 0;
@@ -136,6 +138,17 @@
   bottom: 20mm;
   left: 20mm;
   right: 20mm;
+  padding-top: 12px;
+}
+
+.pdf-content .a4-container .print-doc-page-footer {
+  position: static;
+  margin-top: auto;
+  flex-shrink: 0;
+  width: 100%;
+  left: auto;
+  right: auto;
+  bottom: auto;
   padding-top: 12px;
 }
 

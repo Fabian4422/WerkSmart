@@ -320,6 +320,90 @@ async function waitForImagesInElement(el: HTMLElement) {
   );
 }
 
+/** Erfasst auch Footer im Fluss (scrollHeight umgeht position:absolute-Luecken). */
+function computePdfCaptureHeight(element: HTMLElement): number {
+  const rect = element.getBoundingClientRect();
+  const base = Math.max(element.scrollHeight, Math.ceil(rect.height));
+  const footer = element.querySelector(".print-doc-page-footer");
+  if (footer instanceof HTMLElement) {
+    const fr = footer.getBoundingClientRect();
+    return Math.max(base, Math.ceil(fr.bottom - rect.top + 8));
+  }
+  return base;
+}
+
+/** Nur crossOrigin setzen, wenn das Logo wirklich fremd ist (sonst kann /uploads brechen). */
+function logoNeedsCrossOrigin(logoUrl: string | undefined | null): boolean {
+  if (!logoUrl || typeof window === "undefined") return false;
+  try {
+    return new URL(logoUrl, window.location.href).origin !== window.location.origin;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Fremde Bild-URLs per API als Blob einbinden (same-origin), damit html2canvas sie nicht verwirft.
+ * Nach dem Capture: restore() aufrufen, dann Object-URLs widerrufen.
+ */
+async function inlineExternalImagesForPdfCapture(root: HTMLElement): Promise<{
+  objectUrls: string[];
+  restore: () => void;
+}> {
+  const objectUrls: string[] = [];
+  const toRestore: Array<{ img: HTMLImageElement; prev: string }> = [];
+  if (typeof window === "undefined") return { objectUrls, restore: () => undefined };
+  const token = localStorage.getItem("werkpro-token");
+  const canProxy =
+    !!token && token !== "local-auth-token" && !String(token).startsWith("local-");
+
+  for (const img of root.querySelectorAll("img")) {
+    const raw = img.currentSrc || img.getAttribute("src") || "";
+    if (!raw.trim()) continue;
+    let abs: URL;
+    try {
+      abs = new URL(raw, window.location.href);
+    } catch {
+      continue;
+    }
+    if (abs.origin === window.location.origin) {
+      img.removeAttribute("crossorigin");
+      continue;
+    }
+    if (!canProxy) continue;
+    try {
+      const r = await fetch(
+        `${window.location.origin}/api/image-proxy?url=${encodeURIComponent(abs.href)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!r.ok) continue;
+      const blob = await r.blob();
+      if (!blob.type.startsWith("image/") || blob.size > 4 * 1024 * 1024) continue;
+      const objectUrl = URL.createObjectURL(blob);
+      objectUrls.push(objectUrl);
+      toRestore.push({ img, prev: raw });
+      img.removeAttribute("crossorigin");
+      img.referrerPolicy = "no-referrer";
+      img.src = objectUrl;
+      await new Promise<void>((resolve) => {
+        img.addEventListener("load", () => resolve(), { once: true });
+        img.addEventListener("error", () => resolve(), { once: true });
+      });
+      if (img.decode) await img.decode().catch(() => undefined);
+    } catch {
+      /* ignore */
+    }
+  }
+  return {
+    objectUrls,
+    restore: () => {
+      for (const { img, prev } of toRestore) {
+        img.src = prev;
+      }
+    },
+  };
+}
+
 /** Dateiname für PDF-Download (ohne Druckdialog), z. B. Angebot_ANG-123.pdf */
 function buildPdfDownloadFilename(docType: "offer" | "invoice", docNumber: string | undefined | null) {
   const raw = String(docNumber ?? "ENTWURF").trim() || "ENTWURF";
@@ -334,26 +418,33 @@ async function buildPdfBlobFromElement(element: HTMLElement): Promise<Blob> {
     throw new Error("PDF-Export: Das Vorschau-Element hat keine id.");
   }
 
-  const rect = element.getBoundingClientRect();
-  const windowWidth = Math.ceil(rect.width);
-  const windowHeight = Math.ceil(Math.max(element.scrollHeight, rect.height));
-  if (windowWidth < 2 || windowHeight < 2) {
-    throw new Error(
-      "Die Druckvorlage ist noch nicht bereit oder hat keine Größe. Bitte Seite kurz warten und erneut versuchen."
-    );
-  }
+  let revokeObjectUrls: string[] = [];
+  let restoreInlinedImages: (() => void) | undefined;
+  try {
+    const inlined = await inlineExternalImagesForPdfCapture(element);
+    revokeObjectUrls = inlined.objectUrls;
+    restoreInlinedImages = inlined.restore;
 
-  await document.fonts.ready.catch(() => undefined);
-  await Promise.all([
-    document.fonts.load("400 16px Inter").catch(() => undefined),
-    document.fonts.load("600 16px Inter").catch(() => undefined),
-    document.fonts.load("700 16px Inter").catch(() => undefined),
-    document.fonts.load("800 24px Inter").catch(() => undefined),
-    document.fonts.load("900 30px Inter").catch(() => undefined),
-  ]);
-  await waitForImagesInElement(element);
+    await document.fonts.ready.catch(() => undefined);
+    await Promise.all([
+      document.fonts.load("400 16px Inter").catch(() => undefined),
+      document.fonts.load("600 16px Inter").catch(() => undefined),
+      document.fonts.load("700 16px Inter").catch(() => undefined),
+      document.fonts.load("800 24px Inter").catch(() => undefined),
+      document.fonts.load("900 30px Inter").catch(() => undefined),
+    ]);
+    await waitForImagesInElement(element);
 
-  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    const rect = element.getBoundingClientRect();
+    const windowWidth = Math.ceil(Math.max(rect.width, 2));
+    const windowHeight = Math.ceil(Math.max(computePdfCaptureHeight(element), rect.height, 2));
+    if (windowWidth < 2 || windowHeight < 2) {
+      throw new Error(
+        "Die Druckvorlage ist noch nicht bereit oder hat keine Größe. Bitte Seite kurz warten und erneut versuchen."
+      );
+    }
 
   const canvas = await html2canvas(element, {
     scale: PDF_CAPTURE_SCALE,
@@ -406,11 +497,15 @@ async function buildPdfBlobFromElement(element: HTMLElement): Promise<Blob> {
     heightLeft -= pageHeight;
   }
 
-  const out = pdf.output("blob");
-  if (!(out instanceof Blob)) {
-    throw new Error("PDF-Export: jsPDF lieferte keinen Blob.");
+    const out = pdf.output("blob");
+    if (!(out instanceof Blob)) {
+      throw new Error("PDF-Export: jsPDF lieferte keinen Blob.");
+    }
+    return out.type ? out : new Blob([out], { type: "application/pdf" });
+  } finally {
+    restoreInlinedImages?.();
+    revokeObjectUrls.forEach((u) => URL.revokeObjectURL(u));
   }
-  return out.type ? out : new Blob([out], { type: "application/pdf" });
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -471,7 +566,7 @@ function DocumentPrintPreview({
                     className="inline-block align-top object-contain"
                     style={{ maxWidth: 120, height: 64 }}
                     referrerPolicy="no-referrer"
-                    crossOrigin="anonymous"
+                    {...(logoNeedsCrossOrigin(profile.logoUrl) ? { crossOrigin: "anonymous" as const } : {})}
                   />
                 ) : (
                   <div
@@ -1804,8 +1899,8 @@ export default function App() {
                   <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
                     <h2 className="text-2xl font-bold print:hidden">Dokument prüfen</h2>
                     
-                    <div className="border border-stone-200 rounded-2xl overflow-hidden shadow-inner bg-stone-100 p-4 sm:p-8 print:border-0 print:shadow-none print:bg-white print:p-0">
-                      <div className="preview-container rounded-xl bg-white border border-stone-200 overflow-hidden min-h-[70vh] flex flex-col">
+                    <div className="border border-stone-200 rounded-2xl overflow-x-auto shadow-inner bg-stone-100 p-4 sm:p-8 print:border-0 print:shadow-none print:bg-white print:p-0">
+                      <div className="preview-container rounded-xl bg-white border border-stone-200 overflow-x-auto min-h-[70vh] flex flex-col">
                         {draftPdfBusy && (
                           <p className="text-sm text-stone-500 p-6 text-center">PDF wird erzeugt…</p>
                         )}
@@ -1813,11 +1908,13 @@ export default function App() {
                           <p className="text-sm text-red-600 p-6 text-center">{draftPdfError}</p>
                         )}
                         {draftPdfPreviewUrl && (
-                          <iframe
-                            title="PDF-Vorschau"
-                            src={draftPdfPreviewUrl}
-                            className="w-full flex-1 min-h-[70vh] border-0 bg-white"
-                          />
+                          <div className="min-w-[794px] w-full flex-1 min-h-[70vh] flex flex-col shrink-0">
+                            <iframe
+                              title="PDF-Vorschau"
+                              src={draftPdfPreviewUrl}
+                              className="w-full flex-1 min-h-[70vh] border-0 bg-white"
+                            />
+                          </div>
                         )}
                       </div>
                     </div>
@@ -2276,8 +2373,8 @@ export default function App() {
                   </div>
                 </div>
                 <div className="overflow-y-auto p-4 sm:p-6 flex-1 print:overflow-visible print:p-0">
-                  <div className="border border-stone-200 rounded-2xl overflow-hidden shadow-inner bg-stone-100 p-4 sm:p-8 print:border-0 print:shadow-none print:bg-white">
-                    <div className="preview-container rounded-xl bg-white border border-stone-200 overflow-hidden min-h-[60vh] flex flex-col">
+                  <div className="border border-stone-200 rounded-2xl overflow-x-auto shadow-inner bg-stone-100 p-4 sm:p-8 print:border-0 print:shadow-none print:bg-white">
+                    <div className="preview-container rounded-xl bg-white border border-stone-200 overflow-x-auto min-h-[60vh] flex flex-col">
                       {detailPdfBusy && (
                         <p className="text-sm text-stone-500 p-6 text-center">PDF wird erzeugt…</p>
                       )}
@@ -2285,11 +2382,13 @@ export default function App() {
                         <p className="text-sm text-red-600 p-6 text-center">{detailPdfError}</p>
                       )}
                       {detailPdfPreviewUrl && (
-                        <iframe
-                          title="PDF-Vorschau"
-                          src={detailPdfPreviewUrl}
-                          className="w-full flex-1 min-h-[60vh] border-0 bg-white"
-                        />
+                        <div className="min-w-[794px] w-full flex-1 min-h-[60vh] flex flex-col shrink-0">
+                          <iframe
+                            title="PDF-Vorschau"
+                            src={detailPdfPreviewUrl}
+                            className="w-full flex-1 min-h-[60vh] border-0 bg-white"
+                          />
+                        </div>
                       )}
                     </div>
                   </div>

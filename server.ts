@@ -409,6 +409,59 @@ async function startServer() {
     res.json(profile || null);
   });
 
+  const MAX_IMAGE_PROXY_BYTES = 4 * 1024 * 1024;
+
+  app.get("/api/image-proxy", authenticateToken, async (req: any, res) => {
+    const raw = typeof req.query.url === "string" ? req.query.url.trim() : "";
+    if (!raw || raw.length > 2048) {
+      return res.status(400).json({ error: "Ungültige URL." });
+    }
+    let target: URL;
+    try {
+      target = new URL(raw);
+    } catch {
+      return res.status(400).json({ error: "Ungültige URL." });
+    }
+    if (target.protocol !== "http:" && target.protocol !== "https:") {
+      return res.status(400).json({ error: "Nur http/https erlaubt." });
+    }
+    const host = target.hostname.toLowerCase();
+    if (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "0.0.0.0" ||
+      host.endsWith(".local") ||
+      host.endsWith(".localhost")
+    ) {
+      return res.status(400).json({ error: "URL nicht erlaubt." });
+    }
+
+    try {
+      const upstream = await fetch(target.href, {
+        redirect: "follow",
+        headers: { Accept: "image/*", "User-Agent": "werkpro-image-proxy/1" },
+      });
+      if (!upstream.ok) {
+        return res.status(502).json({ error: "Bild konnte nicht geladen werden." });
+      }
+      const ct = (upstream.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+      if (!ct.startsWith("image/")) {
+        return res.status(400).json({ error: "Antwort ist kein Bild." });
+      }
+      const buf = Buffer.from(await upstream.arrayBuffer());
+      if (buf.length > MAX_IMAGE_PROXY_BYTES) {
+        return res.status(400).json({ error: "Bild zu groß." });
+      }
+      res.setHeader("Content-Type", ct);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Cache-Control", "private, max-age=300");
+      res.send(buf);
+    } catch (e: any) {
+      logError("image-proxy failed", { error: e?.message, url: raw.slice(0, 120) });
+      return res.status(502).json({ error: "Fehler beim Laden des Bildes." });
+    }
+  });
+
   app.post("/api/profile", authenticateToken, (req: any, res) => {
     const data = req.body as ProfileInput;
     const validation = validateProfileInput(data);
