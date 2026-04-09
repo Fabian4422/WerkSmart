@@ -63,6 +63,11 @@
     height: auto !important;
   }
 
+  /* Entwurf „Dokument erstellen“: Wizard-Kopf + Stepper (unabhängig von Tailwind print:hidden) */
+  .create-doc-print-chrome {
+    display: none !important;
+  }
+
   /* Modal/Overlay: kein Flex-Zentrieren mehr (Chrome-Druck) */
   .print-doc-print-host {
     display: block !important;
