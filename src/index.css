@@ -156,62 +156,91 @@
   }
 }
 
-/* Bildschirm: horizontal zentriert ohne flex-Zentrierung am äußeren Host */
-.preview-sheet-host {
-  margin-left: auto;
-  margin-right: auto;
-  width: fit-content;
-  max-width: 100%;
-}
-
-.preview-sheet-host #pdf-content {
-  max-width: none;
-}
-
 /*
-  #pdf-content: A4-Breite, wächst nach unten (height: auto), Papier-Optik per Schatten.
+  Nur Bildschirm: sonst überschreiben diese Regeln (gleiche Spezifität, später im Stylesheet)
+  die @media print-Blöcke — Chrome druckt dann weiter mit Flex + min-height + Footer am Seitenende.
 */
-#pdf-content.pdf-content {
-  display: flex !important;
-  flex-direction: column;
-  justify-content: flex-start;
-  align-items: stretch;
-  align-content: flex-start;
-  box-sizing: border-box;
-  width: 210mm;
-  max-width: 100%;
-  min-height: 297mm;
-  height: auto;
-  max-height: none;
-  margin: 0;
-  padding: 20mm;
-  padding-bottom: 50mm;
-  background-color: #fff;
-  position: relative;
-  color: #000;
-  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(15, 23, 42, 0.06);
-}
+@media screen {
+  /* Horizontal zentriert ohne flex-Zentrierung am äußeren Host */
+  .preview-sheet-host {
+    margin-left: auto;
+    margin-right: auto;
+    width: fit-content;
+    max-width: 100%;
+  }
 
-/* Innerer Rahmen: Flex-Spalte, kein eigener Schatten (nur #pdf-content) */
-#pdf-content .a4-container.pdf-content-inner {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  align-items: stretch;
-  align-content: flex-start;
-  flex: 1 1 auto;
-  min-height: 0;
-  position: relative;
-  width: 100%;
-  padding: 0;
-  padding-bottom: 0;
-}
+  .preview-sheet-host #pdf-content {
+    max-width: none;
+  }
 
-#pdf-content .print-doc-header {
-  flex-shrink: 0;
-  flex-grow: 0;
-  margin: 0;
-  padding: 0;
+  /*
+    #pdf-content: A4-Breite, wächst nach unten (height: auto), Papier-Optik per Schatten.
+  */
+  #pdf-content.pdf-content {
+    display: flex !important;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    align-content: flex-start;
+    box-sizing: border-box;
+    width: 210mm;
+    max-width: 100%;
+    min-height: 297mm;
+    height: auto;
+    max-height: none;
+    margin: 0;
+    padding: 20mm;
+    padding-bottom: 50mm;
+    background-color: #fff;
+    position: relative;
+    color: #000;
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(15, 23, 42, 0.06);
+  }
+
+  /* Innerer Rahmen: Flex-Spalte, kein eigener Schatten (nur #pdf-content) */
+  #pdf-content .a4-container.pdf-content-inner {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    align-content: flex-start;
+    flex: 1 1 auto;
+    min-height: 0;
+    position: relative;
+    width: 100%;
+    padding: 0;
+    padding-bottom: 0;
+  }
+
+  #pdf-content .print-doc-header {
+    flex-shrink: 0;
+    flex-grow: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Hauptblock (Leistungen + Summen): Zwischenraum bis Footer nur im Flex-Layout */
+  .a4-container .print-doc-body {
+    height: auto;
+    min-height: 0;
+    flex-grow: 1;
+    flex-shrink: 0;
+    flex-basis: auto;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Footer im Dokument: nur Fluss + margin-top auto — kein absolute */
+  #pdf-content .a4-container .print-doc-page-footer {
+    position: relative;
+    margin-top: auto;
+    flex-shrink: 0;
+    width: 100%;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    padding-top: 20px;
+  }
 }
 
 .a4-container {
@@ -237,17 +266,6 @@
 .a4-container .print-doc-header,
 .a4-container .print-doc-body {
   width: 100%;
-}
-
-/* Hauptblock (Leistungen + Summen): direkt unter Header, füllt Zwischenraum bis Footer */
-.a4-container .print-doc-body {
-  height: auto;
-  min-height: 0;
-  flex-grow: 1;
-  flex-shrink: 0;
-  flex-basis: auto;
-  margin: 0;
-  padding: 0;
 }
 
 #pdf-content .print-doc-body {
@@ -314,18 +332,6 @@
   left: 20mm;
   right: 20mm;
   padding-top: 12px;
-}
-
-/* Footer im Dokument: nur Fluss + margin-top auto — kein absolute */
-#pdf-content .a4-container .print-doc-page-footer {
-  position: relative;
-  margin-top: auto;
-  flex-shrink: 0;
-  width: 100%;
-  left: auto;
-  right: auto;
-  bottom: auto;
-  padding-top: 20px;
 }
 
 .a4-container .print-doc-footer-rule {
