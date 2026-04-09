@@ -148,20 +148,14 @@ const A4_PADDING_MM = 20;
 const A4_WIDTH_MM = 210;
 const PRINT_CONTENT_WIDTH_PX = Math.round(((A4_WIDTH_MM - 2 * A4_PADDING_MM) / 25.4) * 96);
 
-/** Eindeutige Wurzel-IDs, falls Entwurfs- und Detail-Vorschau gleichzeitig im DOM sind. */
-const PDF_CONTENT_ID_DRAFT = "pdf-content-draft";
-const PDF_CONTENT_ID_DETAIL = "pdf-content-detail";
-
 function DocumentPrintPreview({
   doc,
   profile,
   innerRef,
-  pdfContentId,
 }: {
   doc: Document;
   profile: Profile | null;
   innerRef: RefObject<HTMLDivElement | null>;
-  pdfContentId: typeof PDF_CONTENT_ID_DRAFT | typeof PDF_CONTENT_ID_DETAIL;
 }) {
   const W = PRINT_CONTENT_WIDTH_PX;
   const colPos = 52;
@@ -172,7 +166,7 @@ function DocumentPrintPreview({
   const colFooter = Math.floor(W / 2);
 
   return (
-    <div ref={innerRef} id={pdfContentId} className="pdf-content max-w-none">
+    <div ref={innerRef} id="pdf-content" className="pdf-content max-w-none">
       <div className="a4-container pdf-content-inner">
         <div className="print-doc-header">
         <table className="mb-12 border-collapse" style={{ width: "100%", tableLayout: "fixed" }}>
@@ -261,7 +255,7 @@ function DocumentPrintPreview({
           </thead>
           <tbody>
             {(doc.items || []).map((item, i) => (
-              <tr key={i} className="border-b border-stone-100">
+              <tr key={i} className="leistung-zeile border-b border-stone-100">
                 <td className="col-pos text-stone-400 align-top">{i + 1}</td>
                 <td className="col-beschreibung font-semibold align-top">{item.title}</td>
                 <td className="col-menge align-top tabular-nums">
@@ -1392,7 +1386,6 @@ export default function App() {
                             doc={draftPreviewDocument}
                             profile={profile}
                             innerRef={previewRef}
-                            pdfContentId={PDF_CONTENT_ID_DRAFT}
                           />
                         </div>
                       </div>
@@ -1861,8 +1854,7 @@ export default function App() {
                           doc={openDocument}
                           profile={profile}
                           innerRef={documentDetailPreviewRef}
-                          pdfContentId={PDF_CONTENT_ID_DETAIL}
-                        />
+                          />
                       </div>
                     </div>
                   </div>

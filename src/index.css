@@ -7,12 +7,13 @@
 }
 
 /*
-  Druck/PDF: Nur das Blatt (.pdf-content) sichtbar — Rest der App per visibility ausgeblendet.
+  Druck: Nur #pdf-content sichtbar — Rest per visibility ausgeblendet.
+  @page-Rand 20mm; kein zusätzliches Padding auf #pdf-content.
 */
 @media print {
   @page {
     size: A4;
-    margin: 0;
+    margin: 20mm;
   }
 
   html {
@@ -39,70 +40,100 @@
     visibility: hidden;
   }
 
-  .pdf-content,
-  .pdf-content * {
+  #pdf-content,
+  #pdf-content * {
     visibility: visible;
   }
 
-  .pdf-content {
+  #pdf-content {
+    display: flex;
+    flex-direction: column;
     position: static;
     left: auto;
     top: auto;
     width: 100%;
     max-width: none;
     min-height: 0;
+    height: auto;
+    max-height: none;
     margin: 0;
-    padding: 20mm;
-    padding-bottom: 50mm;
+    padding: 0;
     background: #fff !important;
     box-shadow: none !important;
+    border: none !important;
   }
 
-  .a4-container {
+  #pdf-content .a4-container {
     box-shadow: none !important;
+    background: transparent !important;
   }
 
-  .a4-container .print-doc-items-table thead {
+  #pdf-content .print-doc-items-table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  #pdf-content .print-doc-items-table thead {
     display: table-header-group;
   }
 
-  .a4-container .print-doc-items-table tbody tr {
-    break-inside: avoid;
+  .leistung-zeile {
     page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  #pdf-content .print-doc-page-footer {
+    position: static !important;
+    margin-top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    width: 100%;
+    flex-shrink: 0;
+    padding-top: 12px;
   }
 }
 
-/* Bildschirm: Blatt nicht auf Viewportbreite quetschen — bei Bedarf horizontal scrollen */
-.preview-sheet-host .pdf-content {
+/* Bildschirm: Blatt nicht quetschen — horizontales Scrollen im Host */
+.preview-sheet-host #pdf-content {
   max-width: none;
 }
 
 /*
-  A4-Vorschau (Bildschirm + Druck): gleiche CSS-Quelle.
+  #pdf-content: A4-Breite, wächst nach unten (height: auto), Papier-Optik per Schatten.
 */
-.pdf-content {
-  display: block !important;
+#pdf-content.pdf-content {
+  display: flex !important;
+  flex-direction: column;
+  box-sizing: border-box;
   width: 210mm;
   max-width: 100%;
   min-height: 297mm;
+  height: auto;
+  max-height: none;
+  margin: 0 auto;
   padding: 20mm;
   padding-bottom: 50mm;
   background-color: #fff;
   position: relative;
-  box-sizing: border-box;
-  margin: 0 auto;
   color: #000;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(15, 23, 42, 0.06);
 }
 
-/* Flex: Footer bleibt unten, ist aber im Fluss → html2canvas erfasst Bankzeile + Linie. */
-.pdf-content .a4-container.pdf-content-inner {
+/* Innerer Rahmen: Flex-Spalte, kein eigener Schatten (nur #pdf-content) */
+#pdf-content .a4-container.pdf-content-inner {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   position: relative;
   width: 100%;
   padding: 0;
   padding-bottom: 0;
-  min-height: calc(297mm - 20mm - 50mm);
+}
+
+#pdf-content .print-doc-header {
+  flex-shrink: 0;
 }
 
 .a4-container {
@@ -120,7 +151,8 @@
   text-size-adjust: 100%;
 }
 
-.pdf-content .a4-container {
+#pdf-content .a4-container {
+  box-shadow: none;
   padding-bottom: 0;
 }
 
@@ -129,20 +161,26 @@
   width: 100%;
 }
 
-/* Kein Flex-Space-Distribution: Body nur so hoch wie Inhalt (Leerflaeche bis Footer). */
+/* Hauptblock (Leistungen + Summen): füllt Platz — Footer klebt bei wenig Inhalt unten */
 .a4-container .print-doc-body {
   height: auto;
   min-height: 0;
-  flex-grow: 0;
+  flex-grow: 1;
   flex-shrink: 0;
   flex-basis: auto;
 }
 
 .a4-container .print-doc-items-table {
-  height: auto;
+  border-collapse: collapse;
   width: 100%;
+  height: auto;
   font-size: 12pt;
   line-height: 1.45;
+}
+
+.leistung-zeile {
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 
 .a4-container .print-doc-items-table tbody,
@@ -185,6 +223,7 @@
   text-transform: none;
 }
 
+/* Außerhalb von #pdf-content (falls je wieder verwendet): alter Footer-Modus */
 .a4-container .print-doc-page-footer {
   position: absolute;
   bottom: 20mm;
@@ -193,7 +232,7 @@
   padding-top: 12px;
 }
 
-.pdf-content .a4-container .print-doc-page-footer {
+#pdf-content .a4-container .print-doc-page-footer {
   position: static;
   margin-top: auto;
   flex-shrink: 0;
@@ -210,7 +249,7 @@
   margin: 0 0 12px 0;
 }
 
-/* Kopf: Absender — luftige Zeilen (Vorschau = PDF) */
+/* Kopf: Absender */
 .a4-container .print-doc-sender-block {
   line-height: 1.8;
 }
@@ -259,7 +298,6 @@
   line-height: 1.6;
 }
 
-/* 12 mm vor ANGEBOT / Rechnung-Titel */
 .a4-container .print-doc-title-table {
   margin-top: 12mm;
 }
@@ -303,4 +341,3 @@
   width: 100%;
   padding-bottom: 2rem;
 }
-
