@@ -1103,7 +1103,7 @@ export default function App() {
               exit={{ opacity: 0, x: -20 }}
               className="max-w-4xl mx-auto"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 print:hidden">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleWizardBack}
@@ -1122,7 +1122,7 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-between mb-12 relative">
+              <div className="flex items-center justify-between mb-12 relative print:hidden">
                 <div className="absolute top-1/2 left-0 w-full h-0.5 bg-stone-200 -translate-y-1/2 z-0" />
                 {[1, 2, 3, 4].map((step) => (
                   <div key={step} className="relative z-10 flex flex-col items-center gap-2">
