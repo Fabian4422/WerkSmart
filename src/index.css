@@ -16,16 +16,15 @@
     margin: 20mm;
   }
 
-  html {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  html,
+  body {
     height: auto !important;
     overflow: visible !important;
   }
 
-  body {
-    height: auto !important;
-    overflow: visible !important;
+  html {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   main {
@@ -48,12 +47,15 @@
   #pdf-content {
     display: flex;
     flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    align-content: flex-start;
     position: static;
     left: auto;
     top: auto;
     width: 100%;
     max-width: none;
-    min-height: 0;
+    min-height: 297mm;
     height: auto;
     max-height: none;
     margin: 0;
@@ -66,6 +68,16 @@
   #pdf-content .a4-container {
     box-shadow: none !important;
     background: transparent !important;
+  }
+
+  #pdf-content .a4-container.pdf-content-inner {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
   }
 
   #pdf-content .print-doc-items-table {
@@ -83,18 +95,25 @@
   }
 
   #pdf-content .print-doc-page-footer {
-    position: static !important;
+    position: relative !important;
     margin-top: auto;
+    padding-top: 20px;
     left: auto;
     right: auto;
     bottom: auto;
     width: 100%;
     flex-shrink: 0;
-    padding-top: 12px;
   }
 }
 
-/* Bildschirm: Blatt nicht quetschen — horizontales Scrollen im Host */
+/* Bildschirm: horizontal zentriert ohne flex-Zentrierung am äußeren Host */
+.preview-sheet-host {
+  margin-left: auto;
+  margin-right: auto;
+  width: fit-content;
+  max-width: 100%;
+}
+
 .preview-sheet-host #pdf-content {
   max-width: none;
 }
@@ -105,13 +124,16 @@
 #pdf-content.pdf-content {
   display: flex !important;
   flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  align-content: flex-start;
   box-sizing: border-box;
   width: 210mm;
   max-width: 100%;
   min-height: 297mm;
   height: auto;
   max-height: none;
-  margin: 0 auto;
+  margin: 0;
   padding: 20mm;
   padding-bottom: 50mm;
   background-color: #fff;
@@ -124,6 +146,9 @@
 #pdf-content .a4-container.pdf-content-inner {
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  align-content: flex-start;
   flex: 1 1 auto;
   min-height: 0;
   position: relative;
@@ -134,6 +159,9 @@
 
 #pdf-content .print-doc-header {
   flex-shrink: 0;
+  flex-grow: 0;
+  margin: 0;
+  padding: 0;
 }
 
 .a4-container {
@@ -161,13 +189,19 @@
   width: 100%;
 }
 
-/* Hauptblock (Leistungen + Summen): füllt Platz — Footer klebt bei wenig Inhalt unten */
+/* Hauptblock (Leistungen + Summen): direkt unter Header, füllt Zwischenraum bis Footer */
 .a4-container .print-doc-body {
   height: auto;
   min-height: 0;
   flex-grow: 1;
   flex-shrink: 0;
   flex-basis: auto;
+  margin: 0;
+  padding: 0;
+}
+
+#pdf-content .print-doc-body {
+  margin-top: 0;
 }
 
 .a4-container .print-doc-items-table {
@@ -232,15 +266,16 @@
   padding-top: 12px;
 }
 
+/* Footer im Dokument: nur Fluss + margin-top auto — kein absolute */
 #pdf-content .a4-container .print-doc-page-footer {
-  position: static;
+  position: relative;
   margin-top: auto;
   flex-shrink: 0;
   width: 100%;
   left: auto;
   right: auto;
   bottom: auto;
-  padding-top: 12px;
+  padding-top: 20px;
 }
 
 .a4-container .print-doc-footer-rule {
@@ -335,9 +370,7 @@
 }
 
 .a4-preview-scale {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  display: block;
   width: 100%;
   padding-bottom: 2rem;
 }
