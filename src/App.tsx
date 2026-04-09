@@ -217,7 +217,7 @@ function replaceOklchColors(clonedDoc: globalThis.Document) {
 function snapshotPrintDocumentStyles(clonedDoc: globalThis.Document) {
   const win = clonedDoc.defaultView;
   if (!win) return;
-  const root = clonedDoc.querySelector(".a4-container");
+  const root = clonedDoc.querySelector(".print-container");
   if (!(root instanceof HTMLElement)) return;
 
   const PROPS = [
@@ -323,7 +323,7 @@ function buildPdfDownloadFilename(docType: "offer" | "invoice", docNumber: strin
   return docType === "invoice" ? `Rechnung_${safe}.pdf` : `Angebot_${safe}.pdf`;
 }
 
-/** A4-PDF: 190 mm Breite, Höhe aus getImageProperties (Screenshot-Seitenverhältnis); kein Fit auf 297 mm Bildhöhe. */
+/** A4-PDF: feste Breite 210 mm, proportionale Hoehe; mehrseitig in 297-mm-Bloecke geschnitten. */
 async function downloadPDF(element: HTMLElement, filename: string) {
   const rect = element.getBoundingClientRect();
   if (rect.width < 2 || rect.height < 2) {
@@ -357,16 +357,18 @@ async function downloadPDF(element: HTMLElement, filename: string) {
     onclone: (clonedDoc) => {
       replaceOklchColors(clonedDoc);
       snapshotPrintDocumentStyles(clonedDoc);
-      const ac = clonedDoc.querySelector(".a4-container") as HTMLElement | null;
+      const ac = clonedDoc.querySelector(".print-container") as HTMLElement | null;
       if (ac) {
         ac.style.boxShadow = "none";
         ac.style.outline = "none";
         ac.style.opacity = "1";
         ac.style.visibility = "visible";
         ac.style.boxSizing = "border-box";
-        /* Nur für den Export: keine erzwungene A4-Höhe — Screenshot = reale Inhaltshöhe, kein „auseinanderziehen“ */
-        ac.style.minHeight = "0";
-        ac.style.height = "auto";
+      }
+      const layout = clonedDoc.querySelector(".a4-container") as HTMLElement | null;
+      if (layout) {
+        layout.style.boxShadow = "none";
+        layout.style.outline = "none";
       }
     },
   });
@@ -375,29 +377,56 @@ async function downloadPDF(element: HTMLElement, filename: string) {
     throw new Error("PDF-Export: Das gerenderte Bild ist leer (0×0).");
   }
 
-  const imgData = canvas.toDataURL("image/png");
-  const margin = 10;
-
   const pdf = new jsPDF("p", "mm", "a4");
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
+  const pageHeight = 297;
+  const targetWidth = 210;
+  const finalHeight = (canvas.height * 210) / canvas.width;
 
-  const imgProps = pdf.getImageProperties(imgData);
-  const pdfWidth = 190;
-  const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+  if (finalHeight <= pageHeight) {
+    const imgData = canvas.toDataURL("image/png");
+    pdf.addImage(imgData, "PNG", 0, 0, 210, finalHeight);
+    pdf.save(filename);
+    return;
+  }
 
-  pdf.setFillColor(255, 255, 255);
-  pdf.rect(0, 0, pageWidth, pageHeight, "F");
-  pdf.addImage(imgData, "PNG", margin, margin, pdfWidth, pdfHeight);
+  const pxPerMm = canvas.width / targetWidth;
+  const pageSliceHeightPx = Math.max(1, Math.floor(pageHeight * pxPerMm));
+  let offsetPx = 0;
+  let firstPage = true;
 
-  let heightLeft = pdfHeight + margin - pageHeight;
-  while (heightLeft > 0) {
-    const y = margin - heightLeft;
-    pdf.addPage();
-    pdf.setFillColor(255, 255, 255);
-    pdf.rect(0, 0, pageWidth, pageHeight, "F");
-    pdf.addImage(imgData, "PNG", margin, y, pdfWidth, pdfHeight);
-    heightLeft -= pageHeight - margin;
+  while (offsetPx < canvas.height) {
+    const sliceHeightPx = Math.min(pageSliceHeightPx, canvas.height - offsetPx);
+    const sliceCanvas = document.createElement("canvas");
+    sliceCanvas.width = canvas.width;
+    sliceCanvas.height = sliceHeightPx;
+    const sliceCtx = sliceCanvas.getContext("2d");
+
+    if (!sliceCtx) {
+      throw new Error("PDF-Export: Konnte den Zeichenkontext fuer das Seitenslicing nicht erzeugen.");
+    }
+
+    sliceCtx.drawImage(
+      canvas,
+      0,
+      offsetPx,
+      canvas.width,
+      sliceHeightPx,
+      0,
+      0,
+      canvas.width,
+      sliceHeightPx
+    );
+
+    const imgData = sliceCanvas.toDataURL("image/png");
+    const sliceHeightMm = (sliceHeightPx * targetWidth) / canvas.width;
+
+    if (!firstPage) {
+      pdf.addPage();
+    }
+
+    pdf.addImage(imgData, "PNG", 0, 0, targetWidth, sliceHeightMm);
+    firstPage = false;
+    offsetPx += sliceHeightPx;
   }
 
   pdf.save(filename);
@@ -421,8 +450,9 @@ function DocumentPrintPreview({
   const colFooter = Math.floor(W / 2);
 
   return (
-    <div ref={innerRef} className="a4-container text-stone-800 max-w-none">
-        <div className="print-doc-body" style={{ width: "100%", maxWidth: "100%" }}>
+    <div ref={innerRef} className="print-container text-stone-800 max-w-none">
+      <div className="a4-container">
+        <div className="print-doc-header">
         <table className="mb-12 border-collapse" style={{ width: "100%", tableLayout: "fixed" }}>
           <tbody>
             <tr>
@@ -486,6 +516,8 @@ function DocumentPrintPreview({
             </tr>
           </tbody>
         </table>
+        </div>
+        <div className="print-doc-body" style={{ width: "100%", maxWidth: "100%" }}>
 
         <table className="mb-12 border-collapse print-doc-items-table" style={{ width: "100%", tableLayout: "fixed" }}>
           <colgroup>
@@ -582,6 +614,7 @@ function DocumentPrintPreview({
             </tbody>
           </table>
         </div>
+      </div>
     </div>
   );
 }

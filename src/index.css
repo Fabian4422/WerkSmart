@@ -7,19 +7,27 @@
 }
 
 /*
-  Festes A4-System für Vorschau und PDF (html2canvas): 210 mm × min 297 mm,
-  20 mm Innenabstand — keine Transform-Skalierung, kein „Nachziehen“ per !important.
+  Festes A4-System fuer Vorschau und PDF (html2canvas): 210 mm x min 297 mm.
 */
-.a4-container {
+.print-container {
+  width: 794px;
   width: 210mm;
+  min-height: 1123px;
   min-height: 297mm;
-  max-width: 100%;
+  background: #fff;
+  position: relative;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.a4-container {
+  width: 100%;
+  min-height: 100%;
+  position: relative;
   box-sizing: border-box;
   background: #fff;
   padding: 20mm;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
+  padding-bottom: 55mm;
   box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
   font-size: 12px;
   line-height: 1.45;
@@ -27,8 +35,9 @@
   text-size-adjust: 100%;
 }
 
+.a4-container .print-doc-header,
 .a4-container .print-doc-body {
-  flex: 0 0 auto;
+  width: 100%;
 }
 
 .a4-container .print-doc-items-table {
@@ -75,12 +84,11 @@
 }
 
 .a4-container .print-doc-page-footer {
-  flex: 0 0 auto;
-  flex-shrink: 0;
-  width: 100%;
+  position: absolute;
+  bottom: 15mm;
+  left: 20mm;
+  right: 20mm;
   padding-top: 12px;
-  /* Sticky-Footer in der Vorschau — kein flex-grow-Zwischenelement, das den Screenshot in die Höhe zieht */
-  margin-top: auto;
 }
 
 .a4-container .print-doc-footer-rule {
