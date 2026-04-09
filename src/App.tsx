@@ -1779,7 +1779,7 @@ export default function App() {
         <AnimatePresence>
           {openDocument && (
             <div
-              className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm print:static print:inset-auto print:z-auto print:block print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:p-0"
+              className="print-doc-print-host fixed inset-0 z-[110] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm print:static print:inset-auto print:z-auto print:block print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:p-0"
               onClick={() => setOpenDocument(null)}
             >
               <motion.div
@@ -1787,7 +1787,7 @@ export default function App() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98, y: 12 }}
                 transition={{ duration: 0.2 }}
-                className="bg-stone-100 rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden border border-stone-200 flex flex-col print:max-h-none print:h-auto print:min-h-0 print:overflow-visible print:shadow-none print:border-0 print:rounded-none print:flex-none"
+                className="print-doc-print-panel bg-stone-100 rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden border border-stone-200 flex flex-col print:max-h-none print:h-auto print:min-h-0 print:overflow-visible print:shadow-none print:border-0 print:rounded-none print:flex-none"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 border-b border-stone-200 bg-white shrink-0 print:hidden">

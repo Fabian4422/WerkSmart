@@ -44,6 +44,22 @@
     visibility: visible;
   }
 
+  /* Modal/Overlay: kein Flex-Zentrieren mehr (Chrome-Druck) */
+  .print-doc-print-host {
+    display: block !important;
+    justify-content: unset !important;
+    align-items: unset !important;
+    align-content: unset !important;
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  .print-doc-print-panel {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
   #pdf-content {
     display: flex;
     flex-direction: column;
@@ -55,7 +71,7 @@
     top: auto;
     width: 100%;
     max-width: none;
-    min-height: 297mm;
+    min-height: 0;
     height: auto;
     max-height: none;
     margin: 0;
@@ -75,9 +91,15 @@
     flex-direction: column !important;
     justify-content: flex-start !important;
     align-items: stretch !important;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-height: 0;
     width: 100%;
+  }
+
+  /* Kein künstlicher Zwischenraum über mehrere Druckseiten */
+  #pdf-content .print-doc-body {
+    flex-grow: 0 !important;
+    flex-shrink: 0 !important;
   }
 
   #pdf-content .print-doc-items-table {
@@ -96,7 +118,7 @@
 
   #pdf-content .print-doc-page-footer {
     position: relative !important;
-    margin-top: auto;
+    margin-top: 1.25rem;
     padding-top: 20px;
     left: auto;
     right: auto;
