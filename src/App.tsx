@@ -348,6 +348,20 @@ async function downloadPDF(element: HTMLElement, filename: string) {
     scale: 2,
     useCORS: true,
     windowHeight: 1123,
+    onclone: (clonedDoc) => {
+      const pdfContent = clonedDoc.getElementById("pdf-content");
+      if (pdfContent instanceof HTMLElement) {
+        pdfContent.style.setProperty("display", "block", "important");
+        pdfContent.style.setProperty("min-height", "297mm", "important");
+        pdfContent.style.setProperty("position", "relative", "important");
+      }
+
+      clonedDoc.querySelectorAll<HTMLElement>(".print-doc-body").forEach((body) => {
+        body.style.setProperty("height", "auto", "important");
+        body.style.removeProperty("flex");
+        body.style.removeProperty("justify-content");
+      });
+    },
   });
 
   if (!canvas.width || !canvas.height) {
@@ -358,8 +372,18 @@ async function downloadPDF(element: HTMLElement, filename: string) {
   const pdf = new jsPDF("p", "mm", "a4");
   const imgProps = pdf.getImageProperties(imgData);
   const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-  pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+  const calculatedImgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+  const pageHeight = pdf.internal.pageSize.getHeight();
+
+  pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, calculatedImgHeight);
+
+  let heightLeft = calculatedImgHeight - pageHeight;
+  while (heightLeft > 0) {
+    const y = heightLeft - calculatedImgHeight;
+    pdf.addPage();
+    pdf.addImage(imgData, "PNG", 0, y, pdfWidth, calculatedImgHeight);
+    heightLeft -= pageHeight;
+  }
 
   pdf.save(filename);
 }
@@ -382,8 +406,16 @@ function DocumentPrintPreview({
   const colFooter = Math.floor(W / 2);
 
   return (
-    <div ref={innerRef} className="print-container text-stone-800 max-w-none">
-      <div className="a4-container">
+    <div ref={innerRef} id="pdf-content" className="print-container text-stone-800 max-w-none">
+      <div
+        className="a4-container"
+        style={{
+          display: "block",
+          minHeight: "297mm",
+          position: "relative",
+          paddingBottom: "60mm",
+        }}
+      >
         <div className="print-doc-header">
         <table className="mb-12 border-collapse" style={{ width: "100%", tableLayout: "fixed" }}>
           <tbody>
@@ -449,7 +481,7 @@ function DocumentPrintPreview({
           </tbody>
         </table>
         </div>
-        <div className="print-doc-body" style={{ width: "100%", maxWidth: "100%" }}>
+        <div className="print-doc-body" style={{ width: "100%", maxWidth: "100%", height: "auto" }}>
 
         <table className="mb-12 border-collapse print-doc-items-table" style={{ width: "100%", tableLayout: "fixed" }}>
           <colgroup>
@@ -523,7 +555,7 @@ function DocumentPrintPreview({
         </div>
         </div>
 
-        <div className="print-doc-page-footer">
+        <div className="print-doc-page-footer" style={{ position: "absolute", bottom: "20mm", left: "20mm", right: "20mm" }}>
           <div className="print-doc-footer-rule" aria-hidden />
           <table className="border-collapse" style={{ width: "100%", tableLayout: "fixed" }}>
             <tbody>
