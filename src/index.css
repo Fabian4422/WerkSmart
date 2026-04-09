@@ -18,6 +18,21 @@
   html {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  main {
+    max-width: none !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
   }
 
   body * {
@@ -55,6 +70,11 @@
     break-inside: avoid;
     page-break-inside: avoid;
   }
+}
+
+/* Bildschirm: Blatt nicht auf Viewportbreite quetschen — bei Bedarf horizontal scrollen */
+.preview-sheet-host .pdf-content {
+  max-width: none;
 }
 
 /*

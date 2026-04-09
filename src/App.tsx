@@ -1385,14 +1385,16 @@ export default function App() {
                       Drucken: im Dialog „Als PDF speichern“ wählen, um eine PDF-Datei zu erzeugen.
                     </p>
 
-                    <div className="border border-stone-200 rounded-2xl overflow-x-auto shadow-inner bg-stone-100 py-8 px-4 sm:px-10 print:border-0 print:shadow-none print:bg-white print:p-0">
-                      <div className="a4-preview-scale min-h-[50vh]">
-                        <DocumentPrintPreview
-                          doc={draftPreviewDocument}
-                          profile={profile}
-                          innerRef={previewRef}
-                          pdfContentId={PDF_CONTENT_ID_DRAFT}
-                        />
+                    <div className="border border-stone-200 rounded-2xl overflow-x-auto overflow-y-visible shadow-inner bg-stone-100 py-8 px-4 sm:px-10 print:border-0 print:shadow-none print:bg-white print:p-0 print:overflow-visible">
+                      <div className="a4-preview-scale min-h-[50vh] print:min-h-0">
+                        <div className="preview-sheet-host shrink-0">
+                          <DocumentPrintPreview
+                            doc={draftPreviewDocument}
+                            profile={profile}
+                            innerRef={previewRef}
+                            pdfContentId={PDF_CONTENT_ID_DRAFT}
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -1784,7 +1786,7 @@ export default function App() {
         <AnimatePresence>
           {openDocument && (
             <div
-              className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm print:bg-white print:p-0"
+              className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm print:static print:inset-auto print:z-auto print:block print:h-auto print:min-h-0 print:overflow-visible print:bg-white print:p-0"
               onClick={() => setOpenDocument(null)}
             >
               <motion.div
@@ -1792,7 +1794,7 @@ export default function App() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98, y: 12 }}
                 transition={{ duration: 0.2 }}
-                className="bg-stone-100 rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden border border-stone-200 flex flex-col print:max-h-none print:shadow-none print:border-0 print:rounded-none"
+                className="bg-stone-100 rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden border border-stone-200 flex flex-col print:max-h-none print:h-auto print:min-h-0 print:overflow-visible print:shadow-none print:border-0 print:rounded-none print:flex-none"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 border-b border-stone-200 bg-white shrink-0 print:hidden">
@@ -1851,15 +1853,17 @@ export default function App() {
                     </button>
                   </div>
                 </div>
-                <div className="overflow-y-auto p-4 sm:p-6 flex-1 print:overflow-visible print:p-0">
-                  <div className="border border-stone-200 rounded-2xl overflow-x-auto shadow-inner bg-stone-100 py-8 px-4 sm:px-10 print:border-0 print:shadow-none print:bg-white print:p-0">
-                    <div className="a4-preview-scale min-h-[50vh]">
-                      <DocumentPrintPreview
-                        doc={openDocument}
-                        profile={profile}
-                        innerRef={documentDetailPreviewRef}
-                        pdfContentId={PDF_CONTENT_ID_DETAIL}
-                      />
+                <div className="overflow-y-auto p-4 sm:p-6 flex-1 min-h-0 print:overflow-visible print:h-auto print:min-h-0 print:flex-none print:p-0">
+                  <div className="border border-stone-200 rounded-2xl overflow-x-auto overflow-y-visible shadow-inner bg-stone-100 py-8 px-4 sm:px-10 print:border-0 print:shadow-none print:bg-white print:p-0 print:overflow-visible">
+                    <div className="a4-preview-scale min-h-[50vh] print:min-h-0">
+                      <div className="preview-sheet-host shrink-0">
+                        <DocumentPrintPreview
+                          doc={openDocument}
+                          profile={profile}
+                          innerRef={documentDetailPreviewRef}
+                          pdfContentId={PDF_CONTENT_ID_DETAIL}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
