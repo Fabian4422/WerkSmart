@@ -7,8 +7,8 @@
 }
 
 /*
-  Druck: Nur #pdf-content sichtbar — Rest per visibility ausgeblendet.
-  @page-Rand 20mm; kein zusätzliches Padding auf #pdf-content.
+  Druck: Sichtbare App-Teile per display:none entfernen (kein visibility —
+  unsichtbare Blöcke würden sonst weiter Platz reservieren und #pdf-content nach unten schieben).
 */
 @media print {
   @page {
@@ -22,9 +22,21 @@
     overflow: visible !important;
   }
 
+  #root {
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
   html {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  /* Volle Viewport-Höhe im Druck verhindern (sonst künstlicher Leerraum) */
+  .app-shell {
+    min-height: 0 !important;
+    height: auto !important;
+    display: block !important;
   }
 
   main {
@@ -33,15 +45,22 @@
     padding: 0 !important;
     margin: 0 !important;
     overflow: visible !important;
+    display: block !important;
+    min-height: 0 !important;
+    flex: none !important;
   }
 
-  body * {
-    visibility: hidden;
+  /* Nur den Zweig mit dem Dokument drucken (Dashboard/andere Views aus dem Fluss nehmen) */
+  main > *:not(:has(#pdf-content)) {
+    display: none !important;
   }
 
-  #pdf-content,
-  #pdf-content * {
-    visibility: visible;
+  main > *:has(#pdf-content) {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    height: auto !important;
   }
 
   /* Modal/Overlay: kein Flex-Zentrieren mehr (Chrome-Druck) */

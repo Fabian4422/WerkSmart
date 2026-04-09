@@ -763,9 +763,9 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900 font-sans selection:bg-emerald-100 flex flex-col">
+    <div className="app-shell min-h-screen bg-stone-50 text-stone-900 font-sans selection:bg-emerald-100 flex flex-col">
       {saveFeedback && (
-        <div className="fixed top-4 right-4 z-[120] bg-emerald-600 text-white px-4 py-3 rounded-2xl shadow-xl shadow-emerald-200 flex items-center gap-2 text-sm font-bold">
+        <div className="fixed top-4 right-4 z-[120] bg-emerald-600 text-white px-4 py-3 rounded-2xl shadow-xl shadow-emerald-200 flex items-center gap-2 text-sm font-bold print:hidden">
           <CheckCircle2 className="w-5 h-5" />
           {saveFeedback}
         </div>
