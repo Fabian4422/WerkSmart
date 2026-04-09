@@ -7,26 +7,58 @@
 }
 
 /*
-  Nur fuer html2canvas: festes Layout ausserhalb des sichtbaren Bereichs (nicht display:none).
+  Druck/PDF: Nur das Blatt (.pdf-content) sichtbar — Rest der App per visibility ausgeblendet.
 */
-.pdf-capture-root {
-  position: fixed;
-  left: -10000px;
-  top: 0;
-  width: 210mm;
-  max-width: none;
-  pointer-events: none;
-  z-index: -1;
-}
-
 @media print {
-  .pdf-capture-root {
-    display: none !important;
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .pdf-content,
+  .pdf-content * {
+    visibility: visible;
+  }
+
+  .pdf-content {
+    position: static;
+    left: auto;
+    top: auto;
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    margin: 0;
+    padding: 20mm;
+    padding-bottom: 50mm;
+    background: #fff !important;
+    box-shadow: none !important;
+  }
+
+  .a4-container {
+    box-shadow: none !important;
+  }
+
+  .a4-container .print-doc-items-table thead {
+    display: table-header-group;
+  }
+
+  .a4-container .print-doc-items-table tbody tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
 
 /*
-  A4-Vorschau = PDF-Capture: eine CSS-Quelle, damit html2canvas dasselbe Layout rendert.
+  A4-Vorschau (Bildschirm + Druck): gleiche CSS-Quelle.
 */
 .pdf-content {
   display: block !important;
@@ -247,6 +279,8 @@
 .a4-preview-scale {
   display: flex;
   justify-content: center;
+  align-items: flex-start;
   width: 100%;
+  padding-bottom: 2rem;
 }
 
