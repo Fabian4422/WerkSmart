@@ -152,6 +152,10 @@ const PRINT_CONTENT_WIDTH_PX = Math.round(((A4_WIDTH_MM - 2 * A4_PADDING_MM) / 2
 
 const PDF_CAPTURE_SCALE = 2;
 
+/** Eindeutige Wurzel-IDs für Vorschau + html2canvas (kein doppeltes `pdf-content` im DOM). */
+const PDF_CONTENT_ID_DRAFT = "pdf-content-draft";
+const PDF_CONTENT_ID_DETAIL = "pdf-content-detail";
+
 /** Tailwind/Browser können `oklch(...)` liefern — html2canvas ersetzt durch berechnete Farben. */
 function replaceOklchColors(clonedDoc: globalThis.Document) {
   const win = clonedDoc.defaultView;
@@ -214,10 +218,10 @@ function replaceOklchColors(clonedDoc: globalThis.Document) {
 }
 
 /** Berechnete Layout-Werte in den Klon spiegeln — gleiche Pixelgeometrie wie auf dem Bildschirm. */
-function snapshotPrintDocumentStyles(clonedDoc: globalThis.Document) {
+function snapshotPrintDocumentStyles(clonedDoc: globalThis.Document, rootId: string) {
   const win = clonedDoc.defaultView;
   if (!win) return;
-  const root = clonedDoc.getElementById("pdf-content");
+  const root = clonedDoc.getElementById(rootId);
   if (!(root instanceof HTMLElement)) return;
 
   const PROPS = [
@@ -325,8 +329,15 @@ function buildPdfDownloadFilename(docType: "offer" | "invoice", docNumber: strin
 
 /** PDF-Export: proportionale Bildhoehe, Mehrseiten-Slicing ohne vertikales Stretching der Leistungstabelle. */
 async function downloadPDF(element: HTMLElement, filename: string) {
+  const pdfRootId = element.id.trim();
+  if (!pdfRootId) {
+    throw new Error("PDF-Export: Das Vorschau-Element hat keine id.");
+  }
+
   const rect = element.getBoundingClientRect();
-  if (rect.width < 2 || rect.height < 2) {
+  const windowWidth = Math.ceil(rect.width);
+  const windowHeight = Math.ceil(Math.max(element.scrollHeight, rect.height));
+  if (windowWidth < 2 || windowHeight < 2) {
     throw new Error(
       "Die Druckvorlage ist noch nicht bereit oder hat keine Größe. Bitte Seite kurz warten und erneut versuchen."
     );
@@ -345,13 +356,16 @@ async function downloadPDF(element: HTMLElement, filename: string) {
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
   const canvas = await html2canvas(element, {
-    scale: 2,
+    scale: PDF_CAPTURE_SCALE,
     useCORS: true,
     logging: false,
     backgroundColor: "#ffffff",
-    windowWidth: 794,
+    windowWidth,
+    windowHeight,
     onclone: (clonedDoc) => {
-      const pdfContent = clonedDoc.getElementById("pdf-content");
+      replaceOklchColors(clonedDoc);
+      snapshotPrintDocumentStyles(clonedDoc, pdfRootId);
+      const pdfContent = clonedDoc.getElementById(pdfRootId);
       if (pdfContent instanceof HTMLElement) {
         pdfContent.style.setProperty("display", "block", "important");
         pdfContent.style.setProperty("min-height", "297mm", "important");
@@ -373,8 +387,8 @@ async function downloadPDF(element: HTMLElement, filename: string) {
   const imgData = canvas.toDataURL("image/png");
   const pdf = new jsPDF("p", "mm", "a4");
 
-  const pdfWidth = 210;
-  const pageHeight = 297;
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
 
   const imgProps = pdf.getImageProperties(imgData);
   const totalImgHeight = (imgProps.height * pdfWidth) / imgProps.width;
@@ -399,10 +413,12 @@ function DocumentPrintPreview({
   doc,
   profile,
   innerRef,
+  pdfContentId,
 }: {
   doc: Document;
   profile: Profile | null;
   innerRef: RefObject<HTMLDivElement | null>;
+  pdfContentId: typeof PDF_CONTENT_ID_DRAFT | typeof PDF_CONTENT_ID_DETAIL;
 }) {
   const W = PRINT_CONTENT_WIDTH_PX;
   const colPos = 52;
@@ -413,33 +429,8 @@ function DocumentPrintPreview({
   const colFooter = Math.floor(W / 2);
 
   return (
-    <div
-      ref={innerRef}
-      id="pdf-content"
-      className="max-w-none"
-      style={{
-        width: "210mm",
-        minHeight: "297mm",
-        padding: "20mm",
-        paddingBottom: "50mm",
-        backgroundColor: "white",
-        position: "relative",
-        display: "block",
-        color: "black",
-        boxSizing: "border-box",
-        margin: "0 auto",
-      }}
-    >
-      <div
-        className="a4-container"
-        style={{
-          display: "block",
-          position: "relative",
-          padding: 0,
-          paddingBottom: 0,
-          minHeight: "calc(297mm - 20mm - 50mm)",
-        }}
-      >
+    <div ref={innerRef} id={pdfContentId} className="pdf-content max-w-none">
+      <div className="a4-container pdf-content-inner">
         <div className="print-doc-header">
         <table className="mb-12 border-collapse" style={{ width: "100%", tableLayout: "fixed" }}>
           <tbody>
@@ -579,7 +570,7 @@ function DocumentPrintPreview({
         </div>
         </div>
 
-        <div className="print-doc-page-footer" style={{ position: "absolute", bottom: "20mm", left: "20mm", right: "20mm" }}>
+        <div className="print-doc-page-footer">
           <div className="print-doc-footer-rule" aria-hidden />
           <table className="border-collapse" style={{ width: "100%", tableLayout: "fixed" }}>
             <tbody>
@@ -1008,7 +999,7 @@ export default function App() {
   };
 
   const generatePDF = async () => {
-    const element = previewRef.current ?? document.getElementById("pdf-content");
+    const element = previewRef.current;
     if (!element) return;
 
     try {
@@ -1021,7 +1012,7 @@ export default function App() {
 
   const generateSavedDocumentPDF = async () => {
     if (!openDocument) return;
-    const element = documentDetailPreviewRef.current ?? document.getElementById("pdf-content");
+    const element = documentDetailPreviewRef.current;
     if (!element) return;
 
     try {
@@ -1671,6 +1662,7 @@ export default function App() {
                             doc={buildDraftDocument(newDoc, profile)}
                             profile={profile}
                             innerRef={previewRef}
+                            pdfContentId={PDF_CONTENT_ID_DRAFT}
                           />
                         </div>
                       </div>
@@ -2137,6 +2129,7 @@ export default function App() {
                           doc={openDocument}
                           profile={profile}
                           innerRef={documentDetailPreviewRef}
+                          pdfContentId={PDF_CONTENT_ID_DETAIL}
                         />
                       </div>
                     </div>

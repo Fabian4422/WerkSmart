@@ -7,19 +7,29 @@
 }
 
 /*
-  Festes A4-System fuer Vorschau und PDF (html2canvas): 210 mm x min 297 mm.
+  A4-Vorschau = PDF-Capture: eine CSS-Quelle, damit html2canvas dasselbe Layout rendert.
 */
-.print-container {
-  display: block;
-  width: 794px;
+.pdf-content {
+  display: block !important;
   width: 210mm;
-  height: auto !important;
-  min-height: 0 !important;
-  background: #fff;
-  position: relative;
-  margin: 0 auto;
+  max-width: 100%;
+  min-height: 297mm;
   padding: 20mm;
+  padding-bottom: 50mm;
+  background-color: #fff;
+  position: relative;
   box-sizing: border-box;
+  margin: 0 auto;
+  color: #000;
+}
+
+.pdf-content-inner {
+  display: block;
+  position: relative;
+  width: 100%;
+  padding: 0;
+  padding-bottom: 0;
+  min-height: calc(297mm - 20mm - 50mm);
 }
 
 .a4-container {
@@ -35,6 +45,10 @@
   line-height: 1.45;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+}
+
+.pdf-content .a4-container {
+  padding-bottom: 0;
 }
 
 .a4-container .print-doc-header,
@@ -100,7 +114,7 @@
 
 .a4-container .print-doc-page-footer {
   position: absolute;
-  bottom: 15mm;
+  bottom: 20mm;
   left: 20mm;
   right: 20mm;
   padding-top: 12px;
