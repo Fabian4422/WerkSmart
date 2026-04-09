@@ -79,25 +79,31 @@
     max-height: none !important;
   }
 
-  #pdf-content {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: stretch;
-    align-content: flex-start;
-    position: static;
-    left: auto;
-    top: auto;
-    width: 100%;
-    max-width: none;
-    min-height: 0;
-    height: auto;
-    max-height: none;
-    margin: 0;
-    padding: 0;
+  /*
+    Spezifität wie Bildschirm (#pdf-content.pdf-content + !important),
+    sonst gewinnen Vorschau-Regeln (min-height 297mm, padding, flex) im Druck.
+  */
+  #pdf-content.pdf-content {
+    display: block !important;
+    flex-direction: unset !important;
+    justify-content: unset !important;
+    align-items: unset !important;
+    align-content: unset !important;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    padding-bottom: 0 !important;
     background: #fff !important;
     box-shadow: none !important;
     border: none !important;
+    box-sizing: border-box !important;
   }
 
   #pdf-content .a4-container {
@@ -105,20 +111,23 @@
     background: transparent !important;
   }
 
+  /* Blockfluss: zuverlässiger als Flex über Seitenumbrüche in Chrome */
   #pdf-content .a4-container.pdf-content-inner {
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: flex-start !important;
-    align-items: stretch !important;
-    flex: 0 1 auto;
-    min-height: 0;
-    width: 100%;
+    display: block !important;
+    flex: none !important;
+    min-height: 0 !important;
+    width: 100% !important;
   }
 
-  /* Kein künstlicher Zwischenraum über mehrere Druckseiten */
+  #pdf-content .print-doc-header,
+  #pdf-content .print-doc-body,
+  #pdf-content .print-doc-page-footer {
+    display: block !important;
+  }
+
   #pdf-content .print-doc-body {
-    flex-grow: 0 !important;
-    flex-shrink: 0 !important;
+    flex-grow: unset !important;
+    flex-shrink: unset !important;
   }
 
   #pdf-content .print-doc-items-table {
@@ -137,13 +146,13 @@
 
   #pdf-content .print-doc-page-footer {
     position: relative !important;
-    margin-top: 1.25rem;
-    padding-top: 20px;
-    left: auto;
-    right: auto;
-    bottom: auto;
-    width: 100%;
-    flex-shrink: 0;
+    margin-top: 1.25rem !important;
+    padding-top: 20px !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: 100% !important;
+    flex-shrink: unset !important;
   }
 }
 
