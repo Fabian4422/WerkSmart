@@ -234,7 +234,7 @@ function DocumentPrintPreview({
         </div>
         <div className="print-doc-body" style={{ width: "100%", maxWidth: "100%", height: "auto" }}>
 
-        <table className="mb-12 border-collapse print-doc-items-table" style={{ width: "100%", tableLayout: "fixed" }}>
+        <table className="mb-12 print:mb-3 border-collapse print-doc-items-table" style={{ width: "100%", tableLayout: "fixed" }}>
           <colgroup>
             <col style={{ width: colPos }} />
             <col style={{ width: colTitle }} />
@@ -272,7 +272,7 @@ function DocumentPrintPreview({
           </tbody>
         </table>
 
-        <div className="border-t border-stone-100 pt-8" style={{ width: 300, marginLeft: "auto" }}>
+        <div className="border-t border-stone-100 pt-8 print:pt-3" style={{ width: 300, marginLeft: "auto" }}>
           <table className="border-collapse" style={{ width: 300, tableLayout: "fixed" }}>
             <tbody>
               <tr>
@@ -1142,7 +1142,7 @@ export default function App() {
                 ))}
               </div>
 
-              <div className="bg-white rounded-3xl border border-stone-200 shadow-xl p-8 min-h-[400px]">
+              <div className="bg-white rounded-3xl border border-stone-200 shadow-xl p-8 min-h-[400px] print:border-0 print:shadow-none print:p-0 print:rounded-none print:min-h-0 print:bg-white">
                 {currentStep === 1 && (
                   <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
                     <h2 className="text-2xl font-bold">Was möchten Sie erstellen?</h2>
