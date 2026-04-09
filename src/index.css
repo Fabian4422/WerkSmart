@@ -7,6 +7,25 @@
 }
 
 /*
+  Nur fuer html2canvas: festes Layout ausserhalb des sichtbaren Bereichs (nicht display:none).
+*/
+.pdf-capture-root {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 210mm;
+  max-width: none;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@media print {
+  .pdf-capture-root {
+    display: none !important;
+  }
+}
+
+/*
   A4-Vorschau = PDF-Capture: eine CSS-Quelle, damit html2canvas dasselbe Layout rendert.
 */
 .pdf-content {

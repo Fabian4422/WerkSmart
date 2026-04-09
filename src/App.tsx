@@ -327,8 +327,8 @@ function buildPdfDownloadFilename(docType: "offer" | "invoice", docNumber: strin
   return docType === "invoice" ? `Rechnung_${safe}.pdf` : `Angebot_${safe}.pdf`;
 }
 
-/** PDF-Export: proportionale Bildhoehe, Mehrseiten-Slicing ohne vertikales Stretching der Leistungstabelle. */
-async function downloadPDF(element: HTMLElement, filename: string) {
+/** Erzeugt dieselbe PDF-Datei wie Vorschau/Download (Raster aus html2canvas). */
+async function buildPdfBlobFromElement(element: HTMLElement): Promise<Blob> {
   const pdfRootId = element.id.trim();
   if (!pdfRootId) {
     throw new Error("PDF-Export: Das Vorschau-Element hat keine id.");
@@ -406,7 +406,23 @@ async function downloadPDF(element: HTMLElement, filename: string) {
     heightLeft -= pageHeight;
   }
 
-  pdf.save(filename);
+  const out = pdf.output("blob");
+  if (!(out instanceof Blob)) {
+    throw new Error("PDF-Export: jsPDF lieferte keinen Blob.");
+  }
+  return out.type ? out : new Blob([out], { type: "application/pdf" });
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 2500);
 }
 
 function DocumentPrintPreview({
@@ -694,6 +710,22 @@ export default function App() {
   const documentDetailPreviewRef = useRef<HTMLDivElement>(null);
   const [openDocument, setOpenDocument] = useState<Document | null>(null);
 
+  const draftPreviewDocument = useMemo(() => buildDraftDocument(newDoc, profile), [newDoc, profile]);
+
+  const draftPdfBlobRef = useRef<Blob | null>(null);
+  const detailPdfBlobRef = useRef<Blob | null>(null);
+  const draftPdfObjectUrlRef = useRef<string | null>(null);
+  const detailPdfObjectUrlRef = useRef<string | null>(null);
+  const draftPdfBuildGen = useRef(0);
+  const detailPdfBuildGen = useRef(0);
+
+  const [draftPdfPreviewUrl, setDraftPdfPreviewUrl] = useState<string | null>(null);
+  const [detailPdfPreviewUrl, setDetailPdfPreviewUrl] = useState<string | null>(null);
+  const [draftPdfBusy, setDraftPdfBusy] = useState(false);
+  const [detailPdfBusy, setDetailPdfBusy] = useState(false);
+  const [draftPdfError, setDraftPdfError] = useState<string | null>(null);
+  const [detailPdfError, setDetailPdfError] = useState<string | null>(null);
+
   // Dashboard: Filter-Entwurf vs. angewendete Filter (erst nach „Filter anwenden“)
   const [appliedDocQuery, setAppliedDocQuery] = useState<DocListQuery>(() => ({ ...DEFAULT_DOC_LIST_QUERY }));
   const [draftDocQuery, setDraftDocQuery] = useState<DocListQuery>(() => ({ ...DEFAULT_DOC_LIST_QUERY }));
@@ -744,6 +776,114 @@ export default function App() {
       return ((Number.isNaN(ad) ? 0 : ad) - (Number.isNaN(bd) ? 0 : bd)) * dir;
     });
   }, [documents, appliedDocQuery]);
+
+  useEffect(() => {
+    if (view !== "create-doc" || currentStep !== 4) {
+      draftPdfBuildGen.current += 1;
+      if (draftPdfObjectUrlRef.current) {
+        URL.revokeObjectURL(draftPdfObjectUrlRef.current);
+        draftPdfObjectUrlRef.current = null;
+      }
+      draftPdfBlobRef.current = null;
+      setDraftPdfPreviewUrl(null);
+      setDraftPdfBusy(false);
+      setDraftPdfError(null);
+      return;
+    }
+
+    const gen = ++draftPdfBuildGen.current;
+    setDraftPdfBusy(true);
+    setDraftPdfError(null);
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          await new Promise<void>((r) => requestAnimationFrame(() => r()));
+          if (gen !== draftPdfBuildGen.current) return;
+          const el = previewRef.current;
+          if (!el) {
+            if (gen === draftPdfBuildGen.current) {
+              setDraftPdfError("Vorschau nicht bereit.");
+              setDraftPdfBusy(false);
+            }
+            return;
+          }
+          const blob = await buildPdfBlobFromElement(el);
+          if (gen !== draftPdfBuildGen.current) return;
+          if (draftPdfObjectUrlRef.current) {
+            URL.revokeObjectURL(draftPdfObjectUrlRef.current);
+          }
+          const url = URL.createObjectURL(blob);
+          draftPdfObjectUrlRef.current = url;
+          draftPdfBlobRef.current = blob;
+          setDraftPdfPreviewUrl(url);
+          setDraftPdfBusy(false);
+        } catch (e) {
+          if (gen !== draftPdfBuildGen.current) return;
+          draftPdfBlobRef.current = null;
+          setDraftPdfPreviewUrl(null);
+          setDraftPdfBusy(false);
+          setDraftPdfError(e instanceof Error ? e.message : "PDF konnte nicht erzeugt werden.");
+        }
+      })();
+    }, 280);
+
+    return () => window.clearTimeout(timer);
+  }, [view, currentStep, draftPreviewDocument]);
+
+  useEffect(() => {
+    if (!openDocument) {
+      detailPdfBuildGen.current += 1;
+      if (detailPdfObjectUrlRef.current) {
+        URL.revokeObjectURL(detailPdfObjectUrlRef.current);
+        detailPdfObjectUrlRef.current = null;
+      }
+      detailPdfBlobRef.current = null;
+      setDetailPdfPreviewUrl(null);
+      setDetailPdfBusy(false);
+      setDetailPdfError(null);
+      return;
+    }
+
+    const gen = ++detailPdfBuildGen.current;
+    setDetailPdfBusy(true);
+    setDetailPdfError(null);
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          await new Promise<void>((r) => requestAnimationFrame(() => r()));
+          if (gen !== detailPdfBuildGen.current) return;
+          const el = documentDetailPreviewRef.current;
+          if (!el) {
+            if (gen === detailPdfBuildGen.current) {
+              setDetailPdfError("Vorschau nicht bereit.");
+              setDetailPdfBusy(false);
+            }
+            return;
+          }
+          const blob = await buildPdfBlobFromElement(el);
+          if (gen !== detailPdfBuildGen.current) return;
+          if (detailPdfObjectUrlRef.current) {
+            URL.revokeObjectURL(detailPdfObjectUrlRef.current);
+          }
+          const url = URL.createObjectURL(blob);
+          detailPdfObjectUrlRef.current = url;
+          detailPdfBlobRef.current = blob;
+          setDetailPdfPreviewUrl(url);
+          setDetailPdfBusy(false);
+        } catch (e) {
+          if (gen !== detailPdfBuildGen.current) return;
+          detailPdfBlobRef.current = null;
+          setDetailPdfPreviewUrl(null);
+          setDetailPdfBusy(false);
+          setDetailPdfError(e instanceof Error ? e.message : "PDF konnte nicht erzeugt werden.");
+        }
+      })();
+    }, 280);
+
+    return () => window.clearTimeout(timer);
+  }, [openDocument, profile]);
 
   const statusBadge = (status: DocStatus) => {
     if (status === "bezahlt") return { label: "Bezahlt", cls: "bg-emerald-100 text-emerald-700" };
@@ -999,12 +1139,15 @@ export default function App() {
   };
 
   const generatePDF = async () => {
-    const element = previewRef.current;
-    if (!element) return;
-
     try {
       const kind = newDoc.type === "invoice" ? "invoice" : "offer";
-      await downloadPDF(element, buildPdfDownloadFilename(kind, newDoc.docNumber));
+      const filename = buildPdfDownloadFilename(kind, newDoc.docNumber);
+      const cached = draftPdfBlobRef.current;
+      const blob =
+        cached ??
+        (previewRef.current ? await buildPdfBlobFromElement(previewRef.current) : null);
+      if (!blob) return;
+      downloadBlob(blob, filename);
     } catch (error) {
       console.error("PDF Generation Error:", error);
     }
@@ -1012,12 +1155,18 @@ export default function App() {
 
   const generateSavedDocumentPDF = async () => {
     if (!openDocument) return;
-    const element = documentDetailPreviewRef.current;
-    if (!element) return;
 
     try {
       const kind = openDocument.type === "invoice" ? "invoice" : "offer";
-      await downloadPDF(element, buildPdfDownloadFilename(kind, openDocument.docNumber));
+      const filename = buildPdfDownloadFilename(kind, openDocument.docNumber);
+      const cached = detailPdfBlobRef.current;
+      const blob =
+        cached ??
+        (documentDetailPreviewRef.current
+          ? await buildPdfBlobFromElement(documentDetailPreviewRef.current)
+          : null);
+      if (!blob) return;
+      downloadBlob(blob, filename);
     } catch (error) {
       console.error("PDF Generation Error:", error);
     }
@@ -1656,15 +1805,20 @@ export default function App() {
                     <h2 className="text-2xl font-bold print:hidden">Dokument prüfen</h2>
                     
                     <div className="border border-stone-200 rounded-2xl overflow-hidden shadow-inner bg-stone-100 p-4 sm:p-8 print:border-0 print:shadow-none print:bg-white print:p-0">
-                      <div className="preview-container">
-                        <div className="a4-preview-scale">
-                          <DocumentPrintPreview
-                            doc={buildDraftDocument(newDoc, profile)}
-                            profile={profile}
-                            innerRef={previewRef}
-                            pdfContentId={PDF_CONTENT_ID_DRAFT}
+                      <div className="preview-container rounded-xl bg-white border border-stone-200 overflow-hidden min-h-[70vh] flex flex-col">
+                        {draftPdfBusy && (
+                          <p className="text-sm text-stone-500 p-6 text-center">PDF wird erzeugt…</p>
+                        )}
+                        {draftPdfError && (
+                          <p className="text-sm text-red-600 p-6 text-center">{draftPdfError}</p>
+                        )}
+                        {draftPdfPreviewUrl && (
+                          <iframe
+                            title="PDF-Vorschau"
+                            src={draftPdfPreviewUrl}
+                            className="w-full flex-1 min-h-[70vh] border-0 bg-white"
                           />
-                        </div>
+                        )}
                       </div>
                     </div>
 
@@ -2123,15 +2277,20 @@ export default function App() {
                 </div>
                 <div className="overflow-y-auto p-4 sm:p-6 flex-1 print:overflow-visible print:p-0">
                   <div className="border border-stone-200 rounded-2xl overflow-hidden shadow-inner bg-stone-100 p-4 sm:p-8 print:border-0 print:shadow-none print:bg-white">
-                    <div className="preview-container">
-                      <div className="a4-preview-scale">
-                        <DocumentPrintPreview
-                          doc={openDocument}
-                          profile={profile}
-                          innerRef={documentDetailPreviewRef}
-                          pdfContentId={PDF_CONTENT_ID_DETAIL}
+                    <div className="preview-container rounded-xl bg-white border border-stone-200 overflow-hidden min-h-[60vh] flex flex-col">
+                      {detailPdfBusy && (
+                        <p className="text-sm text-stone-500 p-6 text-center">PDF wird erzeugt…</p>
+                      )}
+                      {detailPdfError && (
+                        <p className="text-sm text-red-600 p-6 text-center">{detailPdfError}</p>
+                      )}
+                      {detailPdfPreviewUrl && (
+                        <iframe
+                          title="PDF-Vorschau"
+                          src={detailPdfPreviewUrl}
+                          className="w-full flex-1 min-h-[60vh] border-0 bg-white"
                         />
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2140,6 +2299,27 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+      {view === "create-doc" && currentStep === 4 && (
+        <div className="pdf-capture-root print:hidden" aria-hidden>
+          <DocumentPrintPreview
+            doc={draftPreviewDocument}
+            profile={profile}
+            innerRef={previewRef}
+            pdfContentId={PDF_CONTENT_ID_DRAFT}
+          />
+        </div>
+      )}
+      {openDocument && (
+        <div className="pdf-capture-root print:hidden" aria-hidden>
+          <DocumentPrintPreview
+            doc={openDocument}
+            profile={profile}
+            innerRef={documentDetailPreviewRef}
+            pdfContentId={PDF_CONTENT_ID_DETAIL}
+          />
+        </div>
+      )}
+
       <footer className="border-t border-stone-200 bg-white py-4 mt-auto shrink-0 print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-stone-500">
           <Link to="/impressum" className="hover:text-stone-800 hover:underline">
