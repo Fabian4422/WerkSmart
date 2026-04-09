@@ -217,7 +217,7 @@ function replaceOklchColors(clonedDoc: globalThis.Document) {
 function snapshotPrintDocumentStyles(clonedDoc: globalThis.Document) {
   const win = clonedDoc.defaultView;
   if (!win) return;
-  const root = clonedDoc.querySelector(".print-container");
+  const root = clonedDoc.getElementById("pdf-content");
   if (!(root instanceof HTMLElement)) return;
 
   const PROPS = [
@@ -323,7 +323,7 @@ function buildPdfDownloadFilename(docType: "offer" | "invoice", docNumber: strin
   return docType === "invoice" ? `Rechnung_${safe}.pdf` : `Angebot_${safe}.pdf`;
 }
 
-/** PDF-Export ohne vertikales Stretching: Hoehe immer proportional zur Screenshot-Geometrie. */
+/** PDF-Export: proportionale Bildhoehe, Mehrseiten-Slicing ohne vertikales Stretching der Leistungstabelle. */
 async function downloadPDF(element: HTMLElement, filename: string) {
   const rect = element.getBoundingClientRect();
   if (rect.width < 2 || rect.height < 2) {
@@ -347,7 +347,9 @@ async function downloadPDF(element: HTMLElement, filename: string) {
   const canvas = await html2canvas(element, {
     scale: 2,
     useCORS: true,
-    windowHeight: 1123,
+    logging: false,
+    backgroundColor: "#ffffff",
+    windowWidth: 794,
     onclone: (clonedDoc) => {
       const pdfContent = clonedDoc.getElementById("pdf-content");
       if (pdfContent instanceof HTMLElement) {
@@ -370,18 +372,23 @@ async function downloadPDF(element: HTMLElement, filename: string) {
 
   const imgData = canvas.toDataURL("image/png");
   const pdf = new jsPDF("p", "mm", "a4");
+
+  const pdfWidth = 210;
+  const pageHeight = 297;
+
   const imgProps = pdf.getImageProperties(imgData);
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const calculatedImgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-  const pageHeight = pdf.internal.pageSize.getHeight();
+  const totalImgHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-  pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, calculatedImgHeight);
+  let heightLeft = totalImgHeight;
+  let position = 0;
 
-  let heightLeft = calculatedImgHeight - pageHeight;
+  pdf.addImage(imgData, "PNG", 0, position, pdfWidth, totalImgHeight);
+  heightLeft -= pageHeight;
+
   while (heightLeft > 0) {
-    const y = heightLeft - calculatedImgHeight;
+    position -= pageHeight;
     pdf.addPage();
-    pdf.addImage(imgData, "PNG", 0, y, pdfWidth, calculatedImgHeight);
+    pdf.addImage(imgData, "PNG", 0, position, pdfWidth, totalImgHeight);
     heightLeft -= pageHeight;
   }
 
@@ -406,14 +413,31 @@ function DocumentPrintPreview({
   const colFooter = Math.floor(W / 2);
 
   return (
-    <div ref={innerRef} id="pdf-content" className="print-container text-stone-800 max-w-none">
+    <div
+      ref={innerRef}
+      id="pdf-content"
+      className="max-w-none"
+      style={{
+        width: "210mm",
+        minHeight: "297mm",
+        padding: "20mm",
+        paddingBottom: "50mm",
+        backgroundColor: "white",
+        position: "relative",
+        display: "block",
+        color: "black",
+        boxSizing: "border-box",
+        margin: "0 auto",
+      }}
+    >
       <div
         className="a4-container"
         style={{
           display: "block",
-          minHeight: "297mm",
           position: "relative",
-          paddingBottom: "60mm",
+          padding: 0,
+          paddingBottom: 0,
+          minHeight: "calc(297mm - 20mm - 50mm)",
         }}
       >
         <div className="print-doc-header">
@@ -983,16 +1007,29 @@ export default function App() {
     resetDocumentDraft();
   };
 
-  const generatePDF = () => {
-    if (!previewRef.current) return;
-    const kind = newDoc.type === "invoice" ? "invoice" : "offer";
-    void downloadPDF(previewRef.current, buildPdfDownloadFilename(kind, newDoc.docNumber));
+  const generatePDF = async () => {
+    const element = previewRef.current ?? document.getElementById("pdf-content");
+    if (!element) return;
+
+    try {
+      const kind = newDoc.type === "invoice" ? "invoice" : "offer";
+      await downloadPDF(element, buildPdfDownloadFilename(kind, newDoc.docNumber));
+    } catch (error) {
+      console.error("PDF Generation Error:", error);
+    }
   };
 
-  const generateSavedDocumentPDF = () => {
-    if (!documentDetailPreviewRef.current || !openDocument) return;
-    const kind = openDocument.type === "invoice" ? "invoice" : "offer";
-    void downloadPDF(documentDetailPreviewRef.current, buildPdfDownloadFilename(kind, openDocument.docNumber));
+  const generateSavedDocumentPDF = async () => {
+    if (!openDocument) return;
+    const element = documentDetailPreviewRef.current ?? document.getElementById("pdf-content");
+    if (!element) return;
+
+    try {
+      const kind = openDocument.type === "invoice" ? "invoice" : "offer";
+      await downloadPDF(element, buildPdfDownloadFilename(kind, openDocument.docNumber));
+    } catch (error) {
+      console.error("PDF Generation Error:", error);
+    }
   };
 
   if (!token) {
