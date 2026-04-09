@@ -10,6 +10,7 @@
   Festes A4-System fuer Vorschau und PDF (html2canvas): 210 mm x min 297 mm.
 */
 .print-container {
+  display: block;
   width: 794px;
   width: 210mm;
   min-height: 1123px;
@@ -21,6 +22,7 @@
 }
 
 .a4-container {
+  display: block;
   width: 100%;
   min-height: 100%;
   position: relative;
@@ -40,12 +42,25 @@
   width: 100%;
 }
 
-.a4-container .print-doc-items-table {
+/* Kein Flex-Space-Distribution: Body nur so hoch wie Inhalt (Leerflaeche bis Footer). */
+.a4-container .print-doc-body {
+  height: auto;
+  min-height: 0;
   flex-grow: 0;
   flex-shrink: 0;
+  flex-basis: auto;
+}
+
+.a4-container .print-doc-items-table {
+  height: auto;
   width: 100%;
   font-size: 12pt;
   line-height: 1.45;
+}
+
+.a4-container .print-doc-items-table tbody,
+.a4-container .print-doc-items-table tr {
+  height: auto;
 }
 
 .a4-container .print-doc-items-table th,

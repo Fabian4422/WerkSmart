@@ -354,6 +354,8 @@ async function downloadPDF(element: HTMLElement, filename: string) {
     imageTimeout: 15000,
     scrollX: -window.scrollX,
     scrollY: -window.scrollY,
+    windowWidth: 794,
+    windowHeight: 1123,
     onclone: (clonedDoc) => {
       replaceOklchColors(clonedDoc);
       snapshotPrintDocumentStyles(clonedDoc);
@@ -364,12 +366,36 @@ async function downloadPDF(element: HTMLElement, filename: string) {
         ac.style.opacity = "1";
         ac.style.visibility = "visible";
         ac.style.boxSizing = "border-box";
+        ac.style.display = "block";
+        ac.style.justifyContent = "normal";
+        ac.style.alignContent = "normal";
       }
       const layout = clonedDoc.querySelector(".a4-container") as HTMLElement | null;
       if (layout) {
         layout.style.boxShadow = "none";
         layout.style.outline = "none";
+        layout.style.display = "block";
+        layout.style.justifyContent = "normal";
       }
+      const body = clonedDoc.querySelector(".print-doc-body") as HTMLElement | null;
+      if (body) {
+        body.style.height = "auto";
+        body.style.minHeight = "0";
+        body.style.maxHeight = "none";
+        body.style.flexGrow = "0";
+        body.style.flexShrink = "0";
+        body.style.flexBasis = "auto";
+        body.style.alignSelf = "auto";
+      }
+      clonedDoc.querySelectorAll(".print-doc-items-table").forEach((node) => {
+        const t = node as HTMLElement;
+        t.style.height = "auto";
+        t.style.flexGrow = "0";
+        t.style.flexShrink = "0";
+      });
+      clonedDoc.querySelectorAll(".print-doc-items-table tbody tr").forEach((node) => {
+        (node as HTMLElement).style.height = "auto";
+      });
     },
   });
 
