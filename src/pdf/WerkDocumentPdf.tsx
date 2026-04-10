@@ -372,7 +372,7 @@ export function WerkDocumentPdf({
           </View>
         ))}
 
-        <View style={styles.totalsWrap} minPresenceAhead={FIXED_FOOTER_RESERVE + 72}>
+        <View style={styles.totalsWrap} wrap={false}>
           <View style={styles.totalsTable}>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Netto</Text>
