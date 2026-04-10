@@ -2,9 +2,7 @@ import {
   useState,
   useEffect,
   useMemo,
-  useRef,
   useCallback,
-  type RefObject,
   type ChangeEvent,
 } from "react";
 import { flushSync } from "react-dom";
@@ -33,6 +31,8 @@ import { twMerge } from "tailwind-merge";
 import { format } from "date-fns";
 
 import { Profile, Service, Document, DocumentItem } from "./types";
+import { DocumentPdfViewer } from "./pdf/DocumentPdfViewer";
+import { downloadWerkPdfDocument } from "./pdf/downloadWerkPdf";
 import Auth from "./components/Auth";
 import Landing from "./Landing";
 import { Link } from "react-router-dom";
@@ -143,197 +143,6 @@ function buildDraftDocument(newDoc: Partial<Document>, profile: Profile | null):
   };
 }
 
-/** A4 mit 20 mm Innenabstand — Satzspiegelbreite in px @ 96dpi (≈ 170 mm). */
-const A4_PADDING_MM = 20;
-const A4_WIDTH_MM = 210;
-const PRINT_CONTENT_WIDTH_PX = Math.round(((A4_WIDTH_MM - 2 * A4_PADDING_MM) / 25.4) * 96);
-
-function DocumentPrintPreview({
-  doc,
-  profile,
-  innerRef,
-}: {
-  doc: Document;
-  profile: Profile | null;
-  innerRef: RefObject<HTMLDivElement | null>;
-}) {
-  const W = PRINT_CONTENT_WIDTH_PX;
-  const colPos = 52;
-  const colTitle = 346;
-  const colQty = 78;
-  const colPrice = 85;
-  const colTotal = 82;
-  const colFooter = Math.floor(W / 2);
-
-  return (
-    <div ref={innerRef} id="pdf-content" className="pdf-content max-w-none">
-      <div className="a4-container pdf-content-inner">
-        <div className="print-doc-header">
-        <table className="mb-12 border-collapse" style={{ width: "100%", tableLayout: "fixed" }}>
-          <tbody>
-            <tr>
-              <td className="align-top pb-0" style={{ width: W - 120, verticalAlign: "top" }}>
-                <div className="print-doc-sender-block">
-                  <h3 className="print-doc-h3 font-bold text-stone-900">{profile?.companyName}</h3>
-                  <p className="print-doc-xs text-stone-500">{profile?.legalForm}</p>
-                  <div className="print-doc-xs text-stone-500 print-doc-sender-contact">
-                    <p>{profile?.address}</p>
-                    <p>
-                      {profile?.phone} | {profile?.email}
-                    </p>
-                  </div>
-                </div>
-              </td>
-              <td className="align-top text-right" style={{ width: 120, verticalAlign: "top" }}>
-                {profile?.logoUrl ? (
-                  <img
-                    src={profile.logoUrl}
-                    alt="Logo"
-                    className="inline-block align-top object-contain"
-                    style={{ maxWidth: 120, height: 64 }}
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div
-                    className="inline-block rounded-xl border border-stone-200 bg-stone-100 align-top text-center"
-                    style={{ width: 64, height: 64, paddingTop: 16 }}
-                  >
-                    <ImageIcon className="inline-block h-8 w-8 text-stone-300" />
-                  </div>
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div className="print-doc-recipient-block">
-          <div className="print-doc-recipient-lines">
-            <p className="print-doc-micro text-stone-400 underline">
-              {profile?.companyName} • {profile?.address}
-            </p>
-            <p className="font-bold print-doc-recipient-name">{doc.customerName}</p>
-          </div>
-        </div>
-
-        <table className="mb-8 border-collapse print-doc-title-table" style={{ width: "100%", tableLayout: "fixed" }}>
-          <tbody>
-            <tr>
-              <td className="align-bottom" style={{ verticalAlign: "bottom" }}>
-                <h4 className="print-doc-h4 print-doc-title-doc font-black uppercase tracking-tighter text-stone-900">
-                  {doc.type === "offer" ? "Angebot" : "Rechnung"}
-                </h4>
-                <p className="text-stone-500">Nr. {doc.docNumber || "—"}</p>
-              </td>
-              <td className="text-right align-bottom" style={{ verticalAlign: "bottom", width: 160 }}>
-                <p className="text-stone-400 uppercase print-doc-micro font-bold">Datum</p>
-                <p className="font-bold">{formatDocDate(doc.date || "")}</p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        </div>
-        <div className="print-doc-body" style={{ width: "100%", maxWidth: "100%", height: "auto" }}>
-
-        <table className="mb-12 print:mb-3 border-collapse print-doc-items-table" style={{ width: "100%", tableLayout: "fixed" }}>
-          <colgroup>
-            <col style={{ width: colPos }} />
-            <col style={{ width: colTitle }} />
-            <col style={{ width: colQty }} />
-            <col style={{ width: colPrice }} />
-            <col style={{ width: colTotal }} />
-          </colgroup>
-          <thead>
-            <tr className="print-doc-items-thead-row border-b-2 border-stone-900 text-left">
-              <th className="col-pos print-doc-th-pos">
-                Pos.{"\u00a0"}
-              </th>
-              <th className="col-beschreibung">Leistung</th>
-              <th className="col-menge">Menge</th>
-              <th className="col-preis print-doc-th-preis">Preis</th>
-              <th className="col-gesamt">Gesamt</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(doc.items || []).map((item, i) => (
-              <tr key={i} className="leistung-zeile border-b border-stone-100">
-                <td className="col-pos text-stone-400 align-top">{i + 1}</td>
-                <td className="col-beschreibung font-semibold align-top">{item.title}</td>
-                <td className="col-menge align-top tabular-nums">
-                  {item.quantity} {item.unit}
-                </td>
-                <td className="col-preis tabular-nums align-top">
-                  {item.price.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €
-                </td>
-                <td className="col-gesamt font-bold tabular-nums align-top">
-                  {item.total.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="border-t border-stone-100 pt-8 print:pt-3" style={{ width: 300, marginLeft: "auto" }}>
-          <table className="border-collapse" style={{ width: 300, tableLayout: "fixed" }}>
-            <tbody>
-              <tr>
-                <td className="text-stone-500 py-1 align-top" style={{ verticalAlign: "top" }}>
-                  Netto
-                </td>
-                <td className="font-semibold tabular-nums text-right py-1 align-top" style={{ verticalAlign: "top" }}>
-                  {doc.totalNet.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €
-                </td>
-              </tr>
-              {!profile?.isSmallBusiness && (
-                <tr>
-                  <td className="text-stone-500 py-1 align-top" style={{ verticalAlign: "top" }}>
-                    MwSt ({profile?.vatRate}%)
-                  </td>
-                  <td className="font-semibold tabular-nums text-right py-1 align-top" style={{ verticalAlign: "top" }}>
-                    {doc.totalVat.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €
-                  </td>
-                </tr>
-              )}
-              <tr className="border-t-2 border-stone-900">
-                <td className="print-doc-xl-total font-black pt-2 pb-1 align-bottom" style={{ verticalAlign: "bottom" }}>
-                  Gesamt
-                </td>
-                <td className="print-doc-xl-total font-black pt-2 pb-1 text-right tabular-nums align-bottom" style={{ verticalAlign: "bottom" }}>
-                  {doc.totalGross.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        </div>
-
-        <div className="print-doc-page-footer">
-          <div className="print-doc-footer-rule" aria-hidden />
-          <table className="border-collapse" style={{ width: "100%", tableLayout: "fixed" }}>
-            <tbody>
-              <tr>
-                <td className="align-top print-doc-micro text-stone-400 align-top" style={{ width: colFooter, verticalAlign: "top" }}>
-                  <p className="font-bold text-stone-600 uppercase mb-1">Bankverbindung</p>
-                  <p>{profile?.bankName}</p>
-                  <p>IBAN: {profile?.iban}</p>
-                  <p>BIC: {profile?.bic}</p>
-                </td>
-                <td className="align-top print-doc-micro text-stone-400 text-right align-top" style={{ width: W - colFooter, verticalAlign: "top" }}>
-                  <p className="font-bold text-stone-600 uppercase mb-1">Steuerdaten</p>
-                  <p>Steuernummer: {profile?.taxNumber}</p>
-                  {profile?.vatId && <p>USt-ID: {profile.vatId}</p>}
-                  {profile?.isSmallBusiness && (
-                    <p className="italic mt-1">Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.</p>
-                  )}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 type View = "onboarding" | "dashboard" | "create-doc" | "settings" | "services";
 
 type DocStatus = "bezahlt" | "offen" | "überfällig";
@@ -426,9 +235,8 @@ export default function App() {
   const [selectedServiceId, setSelectedServiceId] = useState("");
   const [currentStep, setCurrentStep] = useState(1);
 
-  const previewRef = useRef<HTMLDivElement>(null);
-  const documentDetailPreviewRef = useRef<HTMLDivElement>(null);
   const [openDocument, setOpenDocument] = useState<Document | null>(null);
+  const [pdfDownloadBusy, setPdfDownloadBusy] = useState(false);
 
   const draftPreviewDocument = useMemo(() => buildDraftDocument(newDoc, profile), [newDoc, profile]);
 
@@ -736,12 +544,30 @@ export default function App() {
     resetDocumentDraft();
   };
 
-  const printDraftDocument = () => {
-    window.print();
+  const handleDownloadDraftPdf = async () => {
+    if (pdfDownloadBusy) return;
+    setPdfDownloadBusy(true);
+    try {
+      await downloadWerkPdfDocument(draftPreviewDocument, profile, draftPreviewDocument.docNumber);
+    } catch (e) {
+      console.error(e);
+      alert("PDF konnte nicht erzeugt werden. Bitte versuchen Sie es erneut.");
+    } finally {
+      setPdfDownloadBusy(false);
+    }
   };
 
-  const printOpenDocument = () => {
-    window.print();
+  const handleDownloadOpenDocumentPdf = async () => {
+    if (!openDocument || pdfDownloadBusy) return;
+    setPdfDownloadBusy(true);
+    try {
+      await downloadWerkPdfDocument(openDocument, profile, openDocument.docNumber);
+    } catch (e) {
+      console.error(e);
+      alert("PDF konnte nicht erzeugt werden. Bitte versuchen Sie es erneut.");
+    } finally {
+      setPdfDownloadBusy(false);
+    }
   };
 
   if (!token) {
@@ -1376,18 +1202,13 @@ export default function App() {
                   <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
                     <h2 className="text-2xl font-bold print:hidden">Dokument prüfen</h2>
                     <p className="text-sm text-stone-500 print:hidden">
-                      Drucken: im Dialog „Als PDF speichern“ wählen, um eine PDF-Datei zu erzeugen.
+                      Die Vorschau zeigt dasselbe PDF wie der Download. Bei vielen Positionen setzt sich das Dokument auf
+                      weiteren Seiten fort; Kopf und Tabellenköpfe wiederholen sich pro Seite.
                     </p>
 
-                    <div className="border border-stone-200 rounded-2xl overflow-x-auto overflow-y-visible shadow-inner bg-stone-100 py-8 px-4 sm:px-10 print:border-0 print:shadow-none print:bg-white print:p-0 print:overflow-visible">
-                      <div className="a4-preview-scale min-h-[50vh] print:min-h-0">
-                        <div className="preview-sheet-host shrink-0">
-                          <DocumentPrintPreview
-                            doc={draftPreviewDocument}
-                            profile={profile}
-                            innerRef={previewRef}
-                          />
-                        </div>
+                    <div className="border border-stone-200 rounded-2xl overflow-hidden shadow-inner bg-stone-200 print:border-0 print:shadow-none print:bg-white print:overflow-visible">
+                      <div className="h-[min(72vh,780px)] w-full min-h-[420px] bg-stone-100 print:hidden">
+                        <DocumentPdfViewer doc={draftPreviewDocument} profile={profile} className="h-full w-full" />
                       </div>
                     </div>
 
@@ -1395,11 +1216,12 @@ export default function App() {
                       <button onClick={() => setCurrentStep(3)} className="px-6 py-3 font-bold text-stone-500 hover:text-stone-900 transition-colors">Zurück</button>
                       <button
                         type="button"
-                        onClick={printDraftDocument}
-                        className="bg-stone-900 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-stone-800 transition-colors"
-                        title="Systemdruckdialog öffnen – Ziel „Als PDF speichern“"
+                        onClick={() => void handleDownloadDraftPdf()}
+                        disabled={pdfDownloadBusy}
+                        className="bg-stone-900 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-stone-800 transition-colors disabled:opacity-60"
+                        title="PDF-Datei herunterladen"
                       >
-                        <Printer className="w-5 h-5" /> PDF / Drucken
+                        <Printer className="w-5 h-5" /> {pdfDownloadBusy ? "PDF wird erzeugt…" : "PDF herunterladen"}
                       </button>
                       <button onClick={handleCreateDocument} className="bg-emerald-600 text-white px-10 py-3 rounded-xl font-bold shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all hover:-translate-y-1">
                         Dokument speichern
@@ -1821,11 +1643,13 @@ export default function App() {
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={printOpenDocument}
-                      className="inline-flex items-center gap-2 bg-stone-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-stone-800 transition-colors"
-                      title="Systemdruckdialog – „Als PDF speichern“"
+                      onClick={() => void handleDownloadOpenDocumentPdf()}
+                      disabled={pdfDownloadBusy}
+                      className="inline-flex items-center gap-2 bg-stone-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-stone-800 transition-colors disabled:opacity-60"
+                      title="PDF-Datei herunterladen"
                     >
-                      <Printer className="w-4 h-4" /> PDF / Drucken
+                      <Printer className="w-4 h-4" />{" "}
+                      {pdfDownloadBusy ? "PDF…" : "PDF herunterladen"}
                     </button>
                     {openDocument.id != null && (
                       <button
@@ -1846,16 +1670,10 @@ export default function App() {
                     </button>
                   </div>
                 </div>
-                <div className="overflow-y-auto p-4 sm:p-6 flex-1 min-h-0 print:overflow-visible print:h-auto print:min-h-0 print:flex-none print:p-0">
-                  <div className="border border-stone-200 rounded-2xl overflow-x-auto overflow-y-visible shadow-inner bg-stone-100 py-8 px-4 sm:px-10 print:border-0 print:shadow-none print:bg-white print:p-0 print:overflow-visible">
-                    <div className="a4-preview-scale min-h-[50vh] print:min-h-0">
-                      <div className="preview-sheet-host shrink-0">
-                        <DocumentPrintPreview
-                          doc={openDocument}
-                          profile={profile}
-                          innerRef={documentDetailPreviewRef}
-                          />
-                      </div>
+                <div className="overflow-hidden p-4 sm:p-6 flex-1 min-h-0 flex flex-col print:overflow-visible print:h-auto print:min-h-0 print:flex-none print:p-0">
+                  <div className="border border-stone-200 rounded-2xl overflow-hidden shadow-inner bg-stone-200 flex-1 min-h-0 flex flex-col print:border-0 print:shadow-none print:bg-white">
+                    <div className="flex-1 min-h-[min(65vh,640px)] bg-stone-100 print:hidden">
+                      <DocumentPdfViewer doc={openDocument} profile={profile} className="h-full w-full min-h-[min(65vh,640px)]" />
                     </div>
                   </div>
                 </div>
