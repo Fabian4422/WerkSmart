@@ -24,6 +24,7 @@ import {
   LogOut,
   X,
   Printer,
+  Download,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { clsx, type ClassValue } from "clsx";
@@ -32,7 +33,7 @@ import { format } from "date-fns";
 
 import { Profile, Service, Document, DocumentItem } from "./types";
 import { DocumentPdfViewer } from "./pdf/DocumentPdfViewer";
-import { downloadWerkPdfDocument } from "./pdf/downloadWerkPdf";
+import { downloadWerkPdfDocument, printWerkPdfDocument } from "./pdf/downloadWerkPdf";
 import Auth from "./components/Auth";
 import Landing from "./Landing";
 import { Link } from "react-router-dom";
@@ -236,7 +237,7 @@ export default function App() {
   const [currentStep, setCurrentStep] = useState(1);
 
   const [openDocument, setOpenDocument] = useState<Document | null>(null);
-  const [pdfDownloadBusy, setPdfDownloadBusy] = useState(false);
+  const [pdfActionBusy, setPdfActionBusy] = useState(false);
 
   const draftPreviewDocument = useMemo(() => buildDraftDocument(newDoc, profile), [newDoc, profile]);
 
@@ -545,28 +546,54 @@ export default function App() {
   };
 
   const handleDownloadDraftPdf = async () => {
-    if (pdfDownloadBusy) return;
-    setPdfDownloadBusy(true);
+    if (pdfActionBusy) return;
+    setPdfActionBusy(true);
     try {
       await downloadWerkPdfDocument(draftPreviewDocument, profile, draftPreviewDocument.docNumber);
     } catch (e) {
       console.error(e);
       alert("PDF konnte nicht erzeugt werden. Bitte versuchen Sie es erneut.");
     } finally {
-      setPdfDownloadBusy(false);
+      setPdfActionBusy(false);
+    }
+  };
+
+  const handlePrintDraftPdf = async () => {
+    if (pdfActionBusy) return;
+    setPdfActionBusy(true);
+    try {
+      await printWerkPdfDocument(draftPreviewDocument, profile);
+    } catch (e) {
+      console.error(e);
+      alert("Drucken ist fehlgeschlagen. Bitte PDF herunterladen und aus dem Viewer drucken.");
+    } finally {
+      setPdfActionBusy(false);
     }
   };
 
   const handleDownloadOpenDocumentPdf = async () => {
-    if (!openDocument || pdfDownloadBusy) return;
-    setPdfDownloadBusy(true);
+    if (!openDocument || pdfActionBusy) return;
+    setPdfActionBusy(true);
     try {
       await downloadWerkPdfDocument(openDocument, profile, openDocument.docNumber);
     } catch (e) {
       console.error(e);
       alert("PDF konnte nicht erzeugt werden. Bitte versuchen Sie es erneut.");
     } finally {
-      setPdfDownloadBusy(false);
+      setPdfActionBusy(false);
+    }
+  };
+
+  const handlePrintOpenDocumentPdf = async () => {
+    if (!openDocument || pdfActionBusy) return;
+    setPdfActionBusy(true);
+    try {
+      await printWerkPdfDocument(openDocument, profile);
+    } catch (e) {
+      console.error(e);
+      alert("Drucken ist fehlgeschlagen. Bitte PDF herunterladen und aus dem Viewer drucken.");
+    } finally {
+      setPdfActionBusy(false);
     }
   };
 
@@ -1202,8 +1229,8 @@ export default function App() {
                   <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
                     <h2 className="text-2xl font-bold print:hidden">Dokument prüfen</h2>
                     <p className="text-sm text-stone-500 print:hidden">
-                      Die Vorschau zeigt dasselbe PDF wie der Download. Bei vielen Positionen setzt sich das Dokument auf
-                      weiteren Seiten fort; Kopf und Tabellenköpfe wiederholen sich pro Seite.
+                      Die Vorschau zeigt dasselbe PDF wie der Download. Bei vielen Positionen geht die Tabelle auf
+                      weiteren Seiten weiter; Briefkopf und Titel erscheinen nur auf der ersten Seite.
                     </p>
 
                     <div className="overflow-hidden rounded-2xl border border-stone-200 bg-stone-200 shadow-inner print:border-0 print:shadow-none print:bg-white print:overflow-visible">
@@ -1217,11 +1244,21 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => void handleDownloadDraftPdf()}
-                        disabled={pdfDownloadBusy}
+                        disabled={pdfActionBusy}
                         className="bg-stone-900 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-stone-800 transition-colors disabled:opacity-60"
                         title="PDF-Datei herunterladen"
                       >
-                        <Printer className="w-5 h-5" /> {pdfDownloadBusy ? "PDF wird erzeugt…" : "PDF herunterladen"}
+                        <Download className="w-5 h-5" />{" "}
+                        {pdfActionBusy ? "Bitte warten…" : "PDF herunterladen"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handlePrintDraftPdf()}
+                        disabled={pdfActionBusy}
+                        className="bg-white text-stone-900 border-2 border-stone-300 px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-stone-50 transition-colors disabled:opacity-60"
+                        title="System-Druckdialog öffnen"
+                      >
+                        <Printer className="w-5 h-5" /> Drucken
                       </button>
                       <button onClick={handleCreateDocument} className="bg-emerald-600 text-white px-10 py-3 rounded-xl font-bold shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all hover:-translate-y-1">
                         Dokument speichern
@@ -1644,12 +1681,21 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => void handleDownloadOpenDocumentPdf()}
-                      disabled={pdfDownloadBusy}
+                      disabled={pdfActionBusy}
                       className="inline-flex items-center gap-2 bg-stone-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-stone-800 transition-colors disabled:opacity-60"
                       title="PDF-Datei herunterladen"
                     >
-                      <Printer className="w-4 h-4" />{" "}
-                      {pdfDownloadBusy ? "PDF…" : "PDF herunterladen"}
+                      <Download className="w-4 h-4" />{" "}
+                      {pdfActionBusy ? "…" : "PDF herunterladen"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handlePrintOpenDocumentPdf()}
+                      disabled={pdfActionBusy}
+                      className="inline-flex items-center gap-2 bg-white text-stone-900 border-2 border-stone-300 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-stone-50 transition-colors disabled:opacity-60"
+                      title="System-Druckdialog öffnen"
+                    >
+                      <Printer className="w-4 h-4" /> Drucken
                     </button>
                     {openDocument.id != null && (
                       <button

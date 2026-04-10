@@ -13,9 +13,6 @@ const MM_TO_PT = 72 / 25.4;
 const PAD_MM = 20;
 const PAGE_PAD = PAD_MM * MM_TO_PT;
 
-/** Reservierter Platz unterhalb des Seitenrands für den fixierten Kopf inkl. Tabellenköpfe (jede Seite). */
-const FIXED_HEADER_HEIGHT = 258;
-
 const colors = {
   black: "#0c0a09",
   gray500: "#78716c",
@@ -30,18 +27,10 @@ const styles = StyleSheet.create({
     paddingLeft: PAGE_PAD,
     paddingRight: PAGE_PAD,
     paddingBottom: PAGE_PAD,
-    paddingTop: PAGE_PAD + FIXED_HEADER_HEIGHT,
+    paddingTop: PAGE_PAD,
     fontFamily: "Helvetica",
     fontSize: 9,
     color: colors.black,
-  },
-  headerFixed: {
-    position: "absolute",
-    top: PAGE_PAD,
-    left: PAGE_PAD,
-    right: PAGE_PAD,
-    height: FIXED_HEADER_HEIGHT,
-    backgroundColor: "#ffffff",
   },
   headerTopRow: {
     flexDirection: "row",
@@ -134,8 +123,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 2,
     borderBottomColor: colors.line,
-    paddingBottom: 5,
-    marginTop: 2,
+    paddingBottom: 3,
+    marginTop: 0,
   },
   thPos: { width: "7%", fontSize: 7.5, fontFamily: "Helvetica-Bold" },
   thLeistung: {
@@ -168,8 +157,8 @@ const styles = StyleSheet.create({
   },
   itemRow: {
     flexDirection: "row",
-    paddingTop: 5,
-    paddingBottom: 5,
+    paddingTop: 3,
+    paddingBottom: 4,
     borderBottomWidth: 1,
     borderBottomColor: "#f5f5f4",
     alignItems: "flex-start",
@@ -310,7 +299,7 @@ export function WerkDocumentPdf({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <View fixed style={styles.headerFixed}>
+        <View wrap={false}>
           <View style={styles.headerTopRow}>
             <View style={styles.senderCol}>
               <Text style={styles.companyName}>{profile?.companyName || "—"}</Text>
