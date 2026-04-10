@@ -47,6 +47,11 @@ function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+/** Zeilensumme für Live-Anzeige (Menge × Einzelpreis), unabhängig von gespeichertem item.total. */
+function lineItemLineTotal(item: DocumentItem): number {
+  return roundMoney((Number(item.quantity) || 0) * (Number(item.price) || 0));
+}
+
 /** Verkleinert Bilder für Base64 im Profil (Onboarding), damit das JSON-Limit nicht reißt. */
 async function compressImageToDataUrl(file: File, maxEdge = 900): Promise<string> {
   const bitmap = await createImageBitmap(file);
@@ -113,7 +118,8 @@ function normalizeDocumentRow(row: any): Document {
     totalVat: Number.isFinite(totalVat) ? totalVat : 0,
     totalGross: Number.isFinite(totalGross) ? totalGross : 0,
     items,
-    status: row?.status ? String(row.status) : undefined,
+    status:
+      row?.type === "invoice" && row?.status ? String(row.status) : undefined,
   };
 }
 
@@ -530,7 +536,7 @@ export default function App() {
       totalVat,
       totalGross,
       docNumber: `${newDoc.type === "offer" ? "ANG" : "RE"}-${Date.now()}`,
-      status: "offen" as const,
+      ...(newDoc.type === "invoice" ? { status: "offen" as const } : {}),
     };
 
     const current = loadJson<Document[]>(STORAGE_KEYS.documents, []);
@@ -910,23 +916,27 @@ export default function App() {
                             <td className="px-6 py-4 font-medium">{doc.customerName}</td>
                             <td className="px-6 py-4 text-stone-500 text-sm">{formatDocDate(doc.date)}</td>
                             <td className="px-6 py-4 text-right font-bold">{doc.totalGross.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €</td>
-                            <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                              <select
-                                value={displayDocumentStatus(doc)}
-                                onChange={(e) => {
-                                  const v = e.target.value as DocStatus;
-                                  if (doc.id != null) void handleDocumentStatusChange(doc.id, v);
-                                }}
-                                className={cn(
-                                  "min-w-[9.5rem] max-w-full rounded-lg border border-stone-200/80 text-xs font-black py-1.5 pl-2 pr-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/40",
-                                  statusBadge(displayDocumentStatus(doc)).cls
-                                )}
-                                aria-label="Status ändern"
-                              >
-                                <option value="offen">Offen</option>
-                                <option value="bezahlt">Bezahlt</option>
-                                <option value="überfällig">Überfällig</option>
-                              </select>
+                            <td className="px-6 py-4 text-stone-400 text-sm" onClick={(e) => e.stopPropagation()}>
+                              {doc.type === "invoice" && doc.id != null ? (
+                                <select
+                                  value={displayDocumentStatus(doc)}
+                                  onChange={(e) => {
+                                    const v = e.target.value as DocStatus;
+                                    void handleDocumentStatusChange(doc.id!, v);
+                                  }}
+                                  className={cn(
+                                    "min-w-[9.5rem] max-w-full rounded-lg border border-stone-200/80 text-xs font-black py-1.5 pl-2 pr-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/40",
+                                    statusBadge(displayDocumentStatus(doc)).cls
+                                  )}
+                                  aria-label="Status ändern"
+                                >
+                                  <option value="offen">Offen</option>
+                                  <option value="bezahlt">Bezahlt</option>
+                                  <option value="überfällig">Überfällig</option>
+                                </select>
+                              ) : (
+                                "—"
+                              )}
                             </td>
                             <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                               <button
@@ -1141,8 +1151,9 @@ export default function App() {
                               onChange={(e) => {
                                 const val = e.target.value;
                                 const items = [...(newDoc.items || [])];
-                                items[idx].quantity = val === "" ? 0 : parseFloat(val);
-                                items[idx].total = roundMoney(items[idx].quantity * items[idx].price);
+                                const q = val === "" ? 0 : parseFloat(val.replace(",", "."));
+                                items[idx].quantity = Number.isFinite(q) ? q : items[idx].quantity;
+                                items[idx].total = lineItemLineTotal(items[idx]);
                                 setNewDoc({ ...newDoc, items });
                               }}
                               className="w-full bg-white border border-stone-300 rounded-lg px-2 py-2 focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all outline-none font-semibold tabular-nums"
@@ -1177,16 +1188,19 @@ export default function App() {
                           </div>
                           <div className="col-span-3 sm:col-span-2">
                             <label className="text-[10px] font-bold text-stone-400 uppercase">Preis (€)</label>
-                            <input 
-                              type="number" 
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
                               value={item.price === 0 ? "" : item.price}
-                              placeholder="0.00"
+                              placeholder="0"
                               onFocus={(e) => e.target.select()}
                               onChange={(e) => {
                                 const val = e.target.value;
                                 const items = [...(newDoc.items || [])];
-                                items[idx].price = val === "" ? 0 : parseFloat(val);
-                                items[idx].total = roundMoney(items[idx].quantity * items[idx].price);
+                                const p = val === "" ? 0 : parseFloat(val.replace(",", "."));
+                                items[idx].price = Number.isFinite(p) ? p : items[idx].price;
+                                items[idx].total = lineItemLineTotal(items[idx]);
                                 setNewDoc({ ...newDoc, items });
                               }}
                               className="w-full bg-white border border-stone-300 rounded-lg px-2 py-2 focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all outline-none font-semibold tabular-nums"
@@ -1194,7 +1208,9 @@ export default function App() {
                           </div>
                           <div className="col-span-3 sm:col-span-2 text-right">
                             <label className="text-[10px] font-bold text-stone-400 uppercase">Gesamt</label>
-                            <p className="font-bold text-emerald-700 tabular-nums">{roundMoney(item.total).toLocaleString("de-DE", { minimumFractionDigits: 2 })} €</p>
+                            <p className="font-bold text-emerald-700 tabular-nums">
+                              {lineItemLineTotal(item).toLocaleString("de-DE", { minimumFractionDigits: 2 })} €
+                            </p>
                           </div>
                           <div className="col-span-12 sm:col-span-1 flex justify-end">
                             <button 
@@ -1655,7 +1671,7 @@ export default function App() {
                       {openDocument.type === "offer" ? "Angebot" : "Rechnung"} · {openDocument.docNumber}
                     </h2>
                     <p className="text-sm text-stone-500 truncate">{openDocument.customerName}</p>
-                    {openDocument.id != null && (
+                    {openDocument.id != null && openDocument.type === "invoice" && (
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Status</span>
                         <select
