@@ -13,6 +13,9 @@ const MM_TO_PT = 72 / 25.4;
 const PAD_MM = 20;
 const PAGE_PAD = PAD_MM * MM_TO_PT;
 
+/** Platz für fixierten Footer (Linie + Bank + Steuer) — Inhalt darf nicht darüber schreiben. */
+const FIXED_FOOTER_RESERVE = 132;
+
 const colors = {
   black: "#0c0a09",
   gray500: "#78716c",
@@ -26,7 +29,7 @@ const styles = StyleSheet.create({
   page: {
     paddingLeft: PAGE_PAD,
     paddingRight: PAGE_PAD,
-    paddingBottom: PAGE_PAD,
+    paddingBottom: PAGE_PAD + FIXED_FOOTER_RESERVE,
     paddingTop: PAGE_PAD,
     fontFamily: "Helvetica",
     fontSize: 9,
@@ -53,24 +56,10 @@ const styles = StyleSheet.create({
   senderContact: {
     marginTop: 8,
   },
-  logoBox: {
-    width: 68,
-    height: 68,
-    borderWidth: 1,
-    borderColor: "#e7e5e4",
-    borderStyle: "solid",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f5f5f4",
-  },
   logoImg: {
     width: 68,
     height: 68,
     objectFit: "contain",
-  },
-  logoPlaceholder: {
-    fontSize: 7,
-    color: colors.gray400,
   },
   returnLine: {
     fontSize: 7,
@@ -192,6 +181,7 @@ const styles = StyleSheet.create({
   },
   totalsWrap: {
     marginTop: 18,
+    marginBottom: 8,
     alignItems: "flex-end",
   },
   totalsTable: {
@@ -223,9 +213,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Helvetica-Bold",
   },
-  footer: {
-    marginTop: 28,
-    paddingTop: 14,
+  fixedPageFooter: {
+    position: "absolute",
+    bottom: PAGE_PAD,
+    left: PAGE_PAD,
+    right: PAGE_PAD,
+    backgroundColor: "#ffffff",
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: colors.rule,
   },
@@ -283,6 +277,31 @@ function formatMoney(n: number): string {
   return n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function BankSteuerFooter({ profile }: { profile: Profile | null }) {
+  return (
+    <View fixed style={styles.fixedPageFooter}>
+      <View style={styles.footerRow}>
+        <View style={styles.footerCol}>
+          <Text style={styles.footerHeading}>Bankverbindung</Text>
+          <Text style={styles.footerText}>{profile?.bankName || "—"}</Text>
+          <Text style={styles.footerText}>IBAN: {profile?.iban || "—"}</Text>
+          <Text style={styles.footerText}>BIC: {profile?.bic || "—"}</Text>
+        </View>
+        <View style={styles.footerColRight}>
+          <Text style={styles.footerHeadingRight}>Steuerdaten</Text>
+          <Text style={styles.footerTextRight}>Steuernummer: {profile?.taxNumber || "—"}</Text>
+          {profile?.vatId ? <Text style={styles.footerTextRight}>USt-ID: {profile.vatId}</Text> : null}
+          {profile?.isSmallBusiness ? (
+            <Text style={[styles.footerTextRight, { marginTop: 4, fontStyle: "italic" }]}>
+              Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.
+            </Text>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export function WerkDocumentPdf({
   doc,
   profile,
@@ -313,15 +332,7 @@ export function WerkDocumentPdf({
                 </Text>
               </View>
             </View>
-            <View>
-              {logoSrc ? (
-                <Image src={logoSrc} style={styles.logoImg} />
-              ) : (
-                <View style={styles.logoBox}>
-                  <Text style={styles.logoPlaceholder}>Logo</Text>
-                </View>
-              )}
-            </View>
+            {logoSrc ? <Image src={logoSrc} style={styles.logoImg} /> : null}
           </View>
 
           <View style={styles.recipientBlock}>
@@ -361,7 +372,7 @@ export function WerkDocumentPdf({
           </View>
         ))}
 
-        <View style={styles.totalsWrap} minPresenceAhead={100}>
+        <View style={styles.totalsWrap} minPresenceAhead={FIXED_FOOTER_RESERVE + 72}>
           <View style={styles.totalsTable}>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Netto</Text>
@@ -380,28 +391,7 @@ export function WerkDocumentPdf({
           </View>
         </View>
 
-        <View style={styles.footer} minPresenceAhead={80}>
-          <View style={styles.footerRow}>
-            <View style={styles.footerCol}>
-              <Text style={styles.footerHeading}>Bankverbindung</Text>
-              <Text style={styles.footerText}>{profile?.bankName || "—"}</Text>
-              <Text style={styles.footerText}>IBAN: {profile?.iban || "—"}</Text>
-              <Text style={styles.footerText}>BIC: {profile?.bic || "—"}</Text>
-            </View>
-            <View style={styles.footerColRight}>
-              <Text style={styles.footerHeadingRight}>Steuerdaten</Text>
-              <Text style={styles.footerTextRight}>Steuernummer: {profile?.taxNumber || "—"}</Text>
-              {profile?.vatId ? (
-                <Text style={styles.footerTextRight}>USt-ID: {profile.vatId}</Text>
-              ) : null}
-              {profile?.isSmallBusiness ? (
-                <Text style={[styles.footerTextRight, { marginTop: 4, fontStyle: "italic" }]}>
-                  Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.
-                </Text>
-              ) : null}
-            </View>
-          </View>
-        </View>
+        <BankSteuerFooter profile={profile} />
       </Page>
     </Document>
   );
