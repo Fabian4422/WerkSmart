@@ -1206,9 +1206,9 @@ export default function App() {
                       weiteren Seiten fort; Kopf und Tabellenköpfe wiederholen sich pro Seite.
                     </p>
 
-                    <div className="border border-stone-200 rounded-2xl overflow-hidden shadow-inner bg-stone-200 print:border-0 print:shadow-none print:bg-white print:overflow-visible">
-                      <div className="h-[min(72vh,780px)] w-full min-h-[420px] bg-stone-100 print:hidden">
-                        <DocumentPdfViewer doc={draftPreviewDocument} profile={profile} className="h-full w-full" />
+                    <div className="overflow-hidden rounded-2xl border border-stone-200 bg-stone-200 shadow-inner print:border-0 print:shadow-none print:bg-white print:overflow-visible">
+                      <div className="h-[min(72vh,780px)] min-h-[420px] w-full bg-stone-100 print:hidden">
+                        <DocumentPdfViewer doc={draftPreviewDocument} profile={profile} className="h-full w-full min-h-0" />
                       </div>
                     </div>
 
@@ -1609,7 +1609,7 @@ export default function App() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98, y: 12 }}
                 transition={{ duration: 0.2 }}
-                className="print-doc-print-panel bg-stone-100 rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden border border-stone-200 flex flex-col print:max-h-none print:h-auto print:min-h-0 print:overflow-visible print:shadow-none print:border-0 print:rounded-none print:flex-none"
+                className="print-doc-print-panel bg-stone-100 rounded-[2rem] shadow-2xl w-full max-w-5xl h-[90vh] max-h-[90vh] min-h-0 overflow-hidden border border-stone-200 flex flex-col print:h-auto print:max-h-none print:min-h-0 print:overflow-visible print:shadow-none print:border-0 print:rounded-none print:flex-none"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 border-b border-stone-200 bg-white shrink-0 print:hidden">
@@ -1670,10 +1670,10 @@ export default function App() {
                     </button>
                   </div>
                 </div>
-                <div className="overflow-hidden p-4 sm:p-6 flex-1 min-h-0 flex flex-col print:overflow-visible print:h-auto print:min-h-0 print:flex-none print:p-0">
-                  <div className="border border-stone-200 rounded-2xl overflow-hidden shadow-inner bg-stone-200 flex-1 min-h-0 flex flex-col print:border-0 print:shadow-none print:bg-white">
-                    <div className="flex-1 min-h-[min(65vh,640px)] bg-stone-100 print:hidden">
-                      <DocumentPdfViewer doc={openDocument} profile={profile} className="h-full w-full min-h-[min(65vh,640px)]" />
+                <div className="flex-1 min-h-0 flex flex-col overflow-hidden p-4 sm:p-6 print:flex-none print:h-auto print:min-h-0 print:overflow-visible print:p-0">
+                  <div className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl border border-stone-200 bg-stone-200 shadow-inner print:border-0 print:shadow-none print:bg-white">
+                    <div className="min-h-0 flex-1 bg-stone-100 print:hidden">
+                      <DocumentPdfViewer doc={openDocument} profile={profile} className="h-full w-full min-h-0" />
                     </div>
                   </div>
                 </div>
