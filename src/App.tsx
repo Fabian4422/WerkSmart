@@ -47,9 +47,9 @@ function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-const LOGO_SIZE_DEFAULT = 68;
-const LOGO_SIZE_MIN = 32;
-const LOGO_SIZE_MAX = 120;
+const LOGO_SIZE_DEFAULT = 100;
+const LOGO_SIZE_MIN = 20;
+const LOGO_SIZE_MAX = 100;
 
 function clampLogoSize(value: unknown, fallback = LOGO_SIZE_DEFAULT): number {
   const parsed = Number(value);
@@ -60,6 +60,13 @@ function clampLogoSize(value: unknown, fallback = LOGO_SIZE_DEFAULT): number {
 /** Zeilensumme für Live-Anzeige (Menge × Einzelpreis), unabhängig von gespeichertem item.total. */
 function lineItemLineTotal(item: DocumentItem): number {
   return roundMoney((Number(item.quantity) || 0) * (Number(item.price) || 0));
+}
+
+function normalizeItemForTotals(item: DocumentItem): DocumentItem {
+  return {
+    ...item,
+    total: lineItemLineTotal(item),
+  };
 }
 
 /** Verkleinert Bilder für Base64 im Profil (Onboarding), damit das JSON-Limit nicht reißt. */
@@ -107,13 +114,14 @@ function normalizeDocumentRow(row: any): Document {
     const price = Number(it?.price);
     const qty = Number(it?.quantity);
     const total = Number(it?.total);
-    return {
+    const normalizedItem: DocumentItem = {
       title: String(it?.title ?? ""),
       unit: String(it?.unit ?? "Std"),
       price: Number.isFinite(price) ? price : 0,
       quantity: Number.isFinite(qty) ? qty : 0,
       total: Number.isFinite(total) ? total : 0,
     };
+    return normalizeItemForTotals(normalizedItem);
   });
   const totalNet = Number(row?.totalNet);
   const totalVat = Number(row?.totalVat);
@@ -177,8 +185,8 @@ function formatDocDate(iso: string): string {
 
 /** Entwurfs-Dokument für Vorschau/PDF – gleiche Summenlogik wie beim Speichern. */
 function buildDraftDocument(newDoc: Partial<Document>, profile: Profile | null): Document {
-  const items = newDoc.items ?? [];
-  const totalNet = roundMoney(items.reduce((sum, item) => sum + (Number(item.total) || 0), 0));
+  const items = (newDoc.items ?? []).map(normalizeItemForTotals);
+  const totalNet = roundMoney(items.reduce((sum, item) => sum + lineItemLineTotal(item), 0));
   const vatRate = profile?.vatRate ?? 19;
   const totalVat = profile?.isSmallBusiness ? 0 : roundMoney((totalNet * vatRate) / 100);
   const totalGross = roundMoney(totalNet + totalVat);
@@ -577,13 +585,15 @@ export default function App() {
       alert("Bitte mindestens eine Leistung hinzufügen.");
       return;
     }
-    const totalNet = roundMoney(newDoc.items?.reduce((sum, item) => sum + item.total, 0) || 0);
+    const normalizedItems = (newDoc.items || []).map(normalizeItemForTotals);
+    const totalNet = roundMoney(normalizedItems.reduce((sum, item) => sum + lineItemLineTotal(item), 0));
     const vatRate = profile?.vatRate || 19;
     const totalVat = profile?.isSmallBusiness ? 0 : roundMoney((totalNet * vatRate) / 100);
     const totalGross = roundMoney(totalNet + totalVat);
 
     const docData = {
       ...newDoc,
+      items: normalizedItems,
       totalNet,
       totalVat,
       totalGross,
@@ -1337,7 +1347,7 @@ export default function App() {
                         />
                       ) : (
                         <p className="mt-3 text-xs text-stone-500">
-                          Verwendet Profilwert: {clampLogoSize(profile?.logoSize, LOGO_SIZE_DEFAULT)}
+                          Verwendet Profilwert: {clampLogoSize(profile?.logoSize, LOGO_SIZE_DEFAULT)}%
                         </p>
                       )}
                     </div>
@@ -2143,7 +2153,7 @@ function LogoSizeControl({
   return (
     <div className={cn("rounded-2xl border border-stone-200 bg-white p-4", className)}>
       <div className="flex items-center justify-between gap-4">
-        <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">Logo-Groesse</span>
+        <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">Logo-Groesse (%)</span>
         <div className="w-24">
           <input
             type="number"
@@ -2165,7 +2175,7 @@ function LogoSizeControl({
         className="mt-3 w-full accent-emerald-600"
       />
       <p className="mt-2 text-[11px] text-stone-400">
-        Standard fuer Briefkopf in Angebot und Rechnung ({LOGO_SIZE_MIN} - {LOGO_SIZE_MAX}).
+        Standard fuer Briefkopf in Angebot und Rechnung ({LOGO_SIZE_MIN}% - {LOGO_SIZE_MAX}%).
       </p>
     </div>
   );

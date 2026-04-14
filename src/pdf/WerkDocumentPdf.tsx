@@ -12,9 +12,10 @@ import type { Document as BizDocument, Profile } from "../types";
 const MM_TO_PT = 72 / 25.4;
 const PAD_MM = 20;
 const PAGE_PAD = PAD_MM * MM_TO_PT;
-const LOGO_SIZE_DEFAULT = 68;
-const LOGO_SIZE_MIN = 32;
-const LOGO_SIZE_MAX = 120;
+const LOGO_SIZE_PERCENT_DEFAULT = 100;
+const LOGO_SIZE_PERCENT_MIN = 20;
+const LOGO_SIZE_PERCENT_MAX = 100;
+const LOGO_BASE_SIZE_PT = 68;
 
 /** Platz für fixierten Footer (Linie + Bank + Steuer) — Inhalt darf nicht darüber schreiben. */
 const FIXED_FOOTER_RESERVE = 104;
@@ -28,10 +29,14 @@ const colors = {
   rule: "#e7e5e4",
 };
 
-function clampLogoSize(value: unknown, fallback = LOGO_SIZE_DEFAULT): number {
+function clampLogoPercent(value: unknown, fallback = LOGO_SIZE_PERCENT_DEFAULT): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(LOGO_SIZE_MAX, Math.max(LOGO_SIZE_MIN, Math.round(parsed)));
+  return Math.min(LOGO_SIZE_PERCENT_MAX, Math.max(LOGO_SIZE_PERCENT_MIN, Math.round(parsed)));
+}
+
+function calcItemTotal(quantity: number, price: number): number {
+  return Math.round(((Number(quantity) || 0) * (Number(price) || 0) * 100 + Number.EPSILON) / 100);
 }
 
 const styles = StyleSheet.create({
@@ -318,10 +323,11 @@ export function WerkDocumentPdf({
 }) {
   const title = doc.type === "offer" ? "Angebot" : "Rechnung";
   const logoSrc = profile?.logoUrl?.trim() || "";
-  const effectiveLogoSize = clampLogoSize(
-    doc.logoSizeOverride ?? profile?.logoSize ?? LOGO_SIZE_DEFAULT,
-    LOGO_SIZE_DEFAULT
+  const effectiveLogoPercent = clampLogoPercent(
+    doc.logoSizeOverride ?? profile?.logoSize ?? LOGO_SIZE_PERCENT_DEFAULT,
+    LOGO_SIZE_PERCENT_DEFAULT
   );
+  const effectiveLogoSize = Math.round((LOGO_BASE_SIZE_PT * effectiveLogoPercent) / 100);
   const returnLine = [profile?.companyName, profile?.address]
     .filter(Boolean)
     .join(" • ");
@@ -384,7 +390,7 @@ export function WerkDocumentPdf({
               {item.quantity} {item.unit}
             </Text>
             <Text style={styles.tdPreis}>{formatMoney(item.price)} €</Text>
-            <Text style={styles.tdGesamt}>{formatMoney(item.total)} €</Text>
+            <Text style={styles.tdGesamt}>{formatMoney(calcItemTotal(item.quantity, item.price))} €</Text>
           </View>
         ))}
 
