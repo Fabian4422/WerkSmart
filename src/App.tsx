@@ -262,6 +262,9 @@ function displayDocumentStatus(doc: Document): DocStatus {
 }
 
 export default function App() {
+  const buildId =
+    String(import.meta.env.VITE_APP_BUILD_ID ?? import.meta.env.VITE_COMMIT_SHA ?? "local").trim() ||
+    "local";
   const [view, setView] = useState<View>("dashboard");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -1861,6 +1864,7 @@ export default function App() {
           <Link to="/datenschutz" className="hover:text-stone-800 hover:underline">
             Datenschutz
           </Link>
+          <span className="text-stone-400">Build: {buildId}</span>
         </div>
       </footer>
     </div>
