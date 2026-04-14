@@ -17,7 +17,7 @@ const LOGO_SIZE_MIN = 32;
 const LOGO_SIZE_MAX = 120;
 
 /** Platz für fixierten Footer (Linie + Bank + Steuer) — Inhalt darf nicht darüber schreiben. */
-const FIXED_FOOTER_RESERVE = 132;
+const FIXED_FOOTER_RESERVE = 104;
 
 const colors = {
   black: "#0c0a09",
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
   },
   totalsWrap: {
-    marginTop: 18,
+    marginTop: 12,
     marginBottom: 8,
     alignItems: "flex-end",
   },
