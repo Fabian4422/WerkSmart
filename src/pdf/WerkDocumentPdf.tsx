@@ -12,6 +12,9 @@ import type { Document as BizDocument, Profile } from "../types";
 const MM_TO_PT = 72 / 25.4;
 const PAD_MM = 20;
 const PAGE_PAD = PAD_MM * MM_TO_PT;
+const LOGO_SIZE_DEFAULT = 68;
+const LOGO_SIZE_MIN = 32;
+const LOGO_SIZE_MAX = 120;
 
 /** Platz für fixierten Footer (Linie + Bank + Steuer) — Inhalt darf nicht darüber schreiben. */
 const FIXED_FOOTER_RESERVE = 132;
@@ -24,6 +27,12 @@ const colors = {
   line: "#0c0a09",
   rule: "#e7e5e4",
 };
+
+function clampLogoSize(value: unknown, fallback = LOGO_SIZE_DEFAULT): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(LOGO_SIZE_MAX, Math.max(LOGO_SIZE_MIN, Math.round(parsed)));
+}
 
 const styles = StyleSheet.create({
   page: {
@@ -57,8 +66,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   logoImg: {
-    width: 68,
-    height: 68,
     objectFit: "contain",
   },
   returnLine: {
@@ -311,6 +318,10 @@ export function WerkDocumentPdf({
 }) {
   const title = doc.type === "offer" ? "Angebot" : "Rechnung";
   const logoSrc = profile?.logoUrl?.trim() || "";
+  const effectiveLogoSize = clampLogoSize(
+    doc.logoSizeOverride ?? profile?.logoSize ?? LOGO_SIZE_DEFAULT,
+    LOGO_SIZE_DEFAULT
+  );
   const returnLine = [profile?.companyName, profile?.address]
     .filter(Boolean)
     .join(" • ");
@@ -332,7 +343,12 @@ export function WerkDocumentPdf({
                 </Text>
               </View>
             </View>
-            {logoSrc ? <Image src={logoSrc} style={styles.logoImg} /> : null}
+            {logoSrc ? (
+              <Image
+                src={logoSrc}
+                style={[styles.logoImg, { width: effectiveLogoSize, height: effectiveLogoSize }]}
+              />
+            ) : null}
           </View>
 
           <View style={styles.recipientBlock}>

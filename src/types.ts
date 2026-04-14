@@ -15,6 +15,7 @@ export interface Profile {
   bic: string;
   accountHolder: string;
   logoUrl?: string;
+  logoSize?: number;
   paymentTerms: number;
   discount: number;
   offerValidity: number;
@@ -59,4 +60,5 @@ export interface Document {
   totalGross: number;
   items: DocumentItem[];
   status?: string;
+  logoSizeOverride?: number | null;
 }

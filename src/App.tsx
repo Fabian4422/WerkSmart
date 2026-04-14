@@ -47,6 +47,16 @@ function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+const LOGO_SIZE_DEFAULT = 68;
+const LOGO_SIZE_MIN = 32;
+const LOGO_SIZE_MAX = 120;
+
+function clampLogoSize(value: unknown, fallback = LOGO_SIZE_DEFAULT): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(LOGO_SIZE_MAX, Math.max(LOGO_SIZE_MIN, Math.round(parsed)));
+}
+
 /** Zeilensumme für Live-Anzeige (Menge × Einzelpreis), unabhängig von gespeichertem item.total. */
 function lineItemLineTotal(item: DocumentItem): number {
   return roundMoney((Number(item.quantity) || 0) * (Number(item.price) || 0));
@@ -108,6 +118,13 @@ function normalizeDocumentRow(row: any): Document {
   const totalNet = Number(row?.totalNet);
   const totalVat = Number(row?.totalVat);
   const totalGross = Number(row?.totalGross);
+  const logoSizeOverrideRaw = row?.logoSizeOverride;
+  const logoSizeOverride =
+    logoSizeOverrideRaw === null
+      ? null
+      : Number.isFinite(Number(logoSizeOverrideRaw))
+        ? clampLogoSize(logoSizeOverrideRaw)
+        : undefined;
   return {
     id: row?.id,
     type: row?.type === "invoice" ? "invoice" : "offer",
@@ -120,6 +137,34 @@ function normalizeDocumentRow(row: any): Document {
     items,
     status:
       row?.type === "invoice" && row?.status ? String(row.status) : undefined,
+    logoSizeOverride,
+  };
+}
+
+function normalizeProfileRow(row: any): Profile | null {
+  if (!row || typeof row !== "object") return null;
+  return {
+    id: row.id,
+    companyName: String(row.companyName ?? ""),
+    legalForm: String(row.legalForm ?? ""),
+    owner: String(row.owner ?? ""),
+    address: String(row.address ?? ""),
+    phone: String(row.phone ?? ""),
+    email: String(row.email ?? ""),
+    taxNumber: String(row.taxNumber ?? ""),
+    vatId: row.vatId ? String(row.vatId) : undefined,
+    vatRate: Number.isFinite(Number(row.vatRate)) ? Number(row.vatRate) : 19,
+    isSmallBusiness: Boolean(row.isSmallBusiness),
+    bankName: String(row.bankName ?? ""),
+    iban: String(row.iban ?? ""),
+    bic: String(row.bic ?? ""),
+    accountHolder: String(row.accountHolder ?? ""),
+    logoUrl: row.logoUrl ? String(row.logoUrl) : "",
+    logoSize: clampLogoSize(row.logoSize),
+    paymentTerms: Number.isFinite(Number(row.paymentTerms)) ? Number(row.paymentTerms) : 14,
+    discount: Number.isFinite(Number(row.discount)) ? Number(row.discount) : 0,
+    offerValidity: Number.isFinite(Number(row.offerValidity)) ? Number(row.offerValidity) : 30,
+    currency: String(row.currency ?? "EUR"),
   };
 }
 
@@ -147,6 +192,10 @@ function buildDraftDocument(newDoc: Partial<Document>, profile: Profile | null):
     totalGross,
     items,
     status: newDoc.status,
+    logoSizeOverride:
+      newDoc.logoSizeOverride === null || newDoc.logoSizeOverride === undefined
+        ? undefined
+        : clampLogoSize(newDoc.logoSizeOverride),
   };
 }
 
@@ -323,13 +372,14 @@ export default function App() {
       if (!token) return;
       if (!silent) setIsLoading(true);
       try {
-        const profile = loadJson<Profile | null>(STORAGE_KEYS.profile, null);
+        const profileRaw = loadJson<Profile | null>(STORAGE_KEYS.profile, null);
         const serviceRaw = loadJson<any[]>(STORAGE_KEYS.services, []);
         const documentRaw = loadJson<any[]>(STORAGE_KEYS.documents, []);
         const serviceList = Array.isArray(serviceRaw) ? serviceRaw.map(normalizeServiceRow) : [];
         const documentList = Array.isArray(documentRaw)
           ? documentRaw.map(normalizeDocumentRow)
           : [];
+        const profile = normalizeProfileRow(profileRaw);
 
         setProfile(profile);
         setServices(serviceList);
@@ -382,8 +432,10 @@ export default function App() {
   };
 
   const handleSaveProfile = async (data: Profile) => {
-    saveJson(STORAGE_KEYS.profile, data);
-    setProfile(data);
+    const normalized = normalizeProfileRow(data);
+    if (!normalized) return;
+    saveJson(STORAGE_KEYS.profile, normalized);
+    setProfile(normalized);
     setSaveFeedback("Gespeichert");
     window.setTimeout(() => setSaveFeedback(null), 2200);
     if (view === "onboarding") setView("dashboard");
@@ -543,6 +595,10 @@ export default function App() {
     const nextDoc: Document = {
       ...(docData as Document),
       id: Date.now(),
+      logoSizeOverride:
+        docData.logoSizeOverride === null || docData.logoSizeOverride === undefined
+          ? undefined
+          : clampLogoSize(docData.logoSizeOverride),
     };
     const next = [nextDoc, ...current];
     saveJson(STORAGE_KEYS.documents, next);
@@ -1248,6 +1304,43 @@ export default function App() {
                       Die Vorschau zeigt dasselbe PDF wie der Download. Bei vielen Positionen geht die Tabelle auf
                       weiteren Seiten weiter; Briefkopf und Titel erscheinen nur auf der ersten Seite.
                     </p>
+                    <div className="rounded-2xl border border-stone-200 bg-white p-4 print:hidden">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-sm font-bold text-stone-900">Logo im Dokument</p>
+                        <label className="inline-flex items-center gap-2 text-sm font-semibold text-stone-700">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500/25"
+                            checked={newDoc.logoSizeOverride != null}
+                            onChange={(e) =>
+                              setNewDoc((prev) => ({
+                                ...prev,
+                                logoSizeOverride: e.target.checked
+                                  ? clampLogoSize(prev.logoSizeOverride, profile?.logoSize ?? LOGO_SIZE_DEFAULT)
+                                  : null,
+                              }))
+                            }
+                          />
+                          Eigene Logo-Groesse fuer dieses Dokument
+                        </label>
+                      </div>
+                      {newDoc.logoSizeOverride != null ? (
+                        <LogoSizeControl
+                          value={newDoc.logoSizeOverride}
+                          onChange={(next) =>
+                            setNewDoc((prev) => ({
+                              ...prev,
+                              logoSizeOverride: next,
+                            }))
+                          }
+                          className="mt-4"
+                        />
+                      ) : (
+                        <p className="mt-3 text-xs text-stone-500">
+                          Verwendet Profilwert: {clampLogoSize(profile?.logoSize, LOGO_SIZE_DEFAULT)}
+                        </p>
+                      )}
+                    </div>
 
                     <div className="overflow-hidden rounded-2xl border border-stone-200 bg-stone-200 shadow-inner print:border-0 print:shadow-none print:bg-white print:overflow-visible">
                       <div className="h-[min(72vh,780px)] min-h-[420px] w-full bg-stone-100 print:hidden">
@@ -1459,6 +1552,11 @@ export default function App() {
                             URL mit &quot;Speichern&quot; unten sichern. Datei-Upload wird sofort gespeichert.
                           </p>
                         </div>
+                        <LogoSizeControl
+                          value={profile.logoSize ?? LOGO_SIZE_DEFAULT}
+                          onChange={(next) => setProfile((prev) => (prev ? { ...prev, logoSize: next } : prev))}
+                          className="mt-4"
+                        />
                       </div>
                     </div>
                   </div>
@@ -1795,6 +1893,7 @@ function Onboarding({ onComplete }: { onComplete: (data: Profile) => void | Prom
     bic: "",
     accountHolder: "",
     logoUrl: "",
+    logoSize: LOGO_SIZE_DEFAULT,
     paymentTerms: 14,
     discount: 0,
     offerValidity: 30,
@@ -1927,6 +2026,11 @@ function Onboarding({ onComplete }: { onComplete: (data: Profile) => void | Prom
                       </div>
                     )}
                   </div>
+                  <LogoSizeControl
+                    value={data.logoSize ?? LOGO_SIZE_DEFAULT}
+                    onChange={(next) => setData((prev) => ({ ...prev, logoSize: next }))}
+                    className="mt-4"
+                  />
                 </div>
               </div>
               <button onClick={next} className="w-full bg-stone-900 text-white py-4 rounded-2xl font-bold mt-8 hover:bg-stone-800 transition-all">Weiter</button>
@@ -2022,6 +2126,47 @@ function Onboarding({ onComplete }: { onComplete: (data: Profile) => void | Prom
           )}
         </AnimatePresence>
       </div>
+    </div>
+  );
+}
+
+function LogoSizeControl({
+  value,
+  onChange,
+  className,
+}: {
+  value: number;
+  onChange: (next: number) => void;
+  className?: string;
+}) {
+  const safeValue = clampLogoSize(value);
+  return (
+    <div className={cn("rounded-2xl border border-stone-200 bg-white p-4", className)}>
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">Logo-Groesse</span>
+        <div className="w-24">
+          <input
+            type="number"
+            min={LOGO_SIZE_MIN}
+            max={LOGO_SIZE_MAX}
+            value={safeValue}
+            onChange={(e) => onChange(clampLogoSize(e.target.value, safeValue))}
+            className="block w-full rounded-xl border border-stone-300 bg-white py-2 px-3 text-sm font-semibold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/25 transition-all"
+          />
+        </div>
+      </div>
+      <input
+        type="range"
+        min={LOGO_SIZE_MIN}
+        max={LOGO_SIZE_MAX}
+        step={1}
+        value={safeValue}
+        onChange={(e) => onChange(clampLogoSize(e.target.value, safeValue))}
+        className="mt-3 w-full accent-emerald-600"
+      />
+      <p className="mt-2 text-[11px] text-stone-400">
+        Standard fuer Briefkopf in Angebot und Rechnung ({LOGO_SIZE_MIN} - {LOGO_SIZE_MAX}).
+      </p>
     </div>
   );
 }
