@@ -47,6 +47,24 @@ function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+/** Leer -> 0; gültige Zahl -> Wert; ungültig -> null (Aufrufer behält Vorwert). */
+function parseDecimalInput(raw: string): number | null {
+  const t = raw.trim();
+  if (t === "") return 0;
+  const n = parseFloat(t.replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatQuantityForInput(q: number): string {
+  if (!Number.isFinite(q) || q === 0) return "";
+  return String(q);
+}
+
+function formatPriceForInput(p: number): string {
+  if (!Number.isFinite(p) || p === 0) return "";
+  return String(roundMoney(p));
+}
+
 const LOGO_SIZE_DEFAULT = 100;
 const LOGO_SIZE_MIN = 20;
 const LOGO_SIZE_MAX = 100;
@@ -86,6 +104,22 @@ function mapNewDocItemsAt(
   if (index < 0 || index >= list.length) return prev;
   const nextItems = list.map((row, i) => (i === index ? updater(row) : row));
   return { ...prev, items: nextItems };
+}
+
+/** Zeile per `draftRowKey` finden, sonst Fallback-Index (z. B. alte Entwürfe ohne Key). */
+function mapNewDocItemByDraftKey(
+  prev: Partial<Document>,
+  draftRowKey: string | undefined,
+  rowIndex: number,
+  updater: (row: DocumentItem) => DocumentItem
+): Partial<Document> {
+  const list = prev.items || [];
+  const byKey =
+    draftRowKey != null && draftRowKey !== ""
+      ? list.findIndex((r) => r.draftRowKey === draftRowKey)
+      : -1;
+  const index = byKey >= 0 ? byKey : rowIndex;
+  return mapNewDocItemsAt(prev, index, updater);
 }
 
 function stripDraftRowKey(item: DocumentItem): DocumentItem {
@@ -1224,20 +1258,21 @@ export default function App() {
 
                     <div className="space-y-4">
                       {newDoc.items?.map((item, idx) => {
+                        const rowKey = item.draftRowKey;
                         const applyQuantityRaw = (raw: string) => {
                           setNewDoc((prev) =>
-                            mapNewDocItemsAt(prev, idx, (row) => {
-                              const q = raw === "" ? 0 : parseFloat(raw.replace(",", "."));
-                              const nextQ = Number.isFinite(q) ? q : row.quantity;
+                            mapNewDocItemByDraftKey(prev, rowKey, idx, (row) => {
+                              const parsed = parseDecimalInput(raw);
+                              const nextQ = parsed === null ? Number(row.quantity) || 0 : parsed;
                               return normalizeItemForTotals({ ...row, quantity: nextQ });
                             })
                           );
                         };
                         const applyPriceRaw = (raw: string) => {
                           setNewDoc((prev) =>
-                            mapNewDocItemsAt(prev, idx, (row) => {
-                              const p = raw === "" ? 0 : parseFloat(raw.replace(",", "."));
-                              const nextP = Number.isFinite(p) ? p : row.price;
+                            mapNewDocItemByDraftKey(prev, rowKey, idx, (row) => {
+                              const parsed = parseDecimalInput(raw);
+                              const nextP = parsed === null ? Number(row.price) || 0 : roundMoney(parsed);
                               return normalizeItemForTotals({ ...row, price: nextP });
                             })
                           );
@@ -1254,7 +1289,7 @@ export default function App() {
                               onChange={(e) => {
                                 const title = e.target.value;
                                 setNewDoc((prev) =>
-                                  mapNewDocItemsAt(prev, idx, (row) => ({ ...row, title }))
+                                  mapNewDocItemByDraftKey(prev, rowKey, idx, (row) => ({ ...row, title }))
                                 );
                               }}
                               className="w-full bg-white border border-stone-300 rounded-lg px-2 py-2 focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all outline-none font-semibold"
@@ -1263,12 +1298,13 @@ export default function App() {
                           <div className="col-span-3 sm:col-span-1">
                             <label className="text-[10px] font-bold text-stone-400 uppercase">Menge</label>
                             <input 
-                              type="number" 
-                              value={item.quantity === 0 ? "" : item.quantity}
+                              type="text"
+                              inputMode="decimal"
+                              autoComplete="off"
+                              value={formatQuantityForInput(Number(item.quantity) || 0)}
                               placeholder="0"
                               onFocus={(e) => e.target.select()}
                               onChange={(e) => applyQuantityRaw(e.target.value)}
-                              onInput={(e) => applyQuantityRaw(e.currentTarget.value)}
                               className="w-full bg-white border border-stone-300 rounded-lg px-2 py-2 focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all outline-none font-semibold tabular-nums"
                             />
                           </div>
@@ -1281,7 +1317,7 @@ export default function App() {
                                 if (item.unitLocked) return;
                                 const unit = e.target.value;
                                 setNewDoc((prev) =>
-                                  mapNewDocItemsAt(prev, idx, (row) => ({ ...row, unit }))
+                                  mapNewDocItemByDraftKey(prev, rowKey, idx, (row) => ({ ...row, unit }))
                                 );
                               }}
                               className={cn(
@@ -1303,14 +1339,13 @@ export default function App() {
                           <div className="col-span-3 sm:col-span-2">
                             <label className="text-[10px] font-bold text-stone-400 uppercase">Preis (€)</label>
                             <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={item.price === 0 ? "" : item.price}
+                              type="text"
+                              inputMode="decimal"
+                              autoComplete="off"
+                              value={formatPriceForInput(Number(item.price) || 0)}
                               placeholder="0"
                               onFocus={(e) => e.target.select()}
                               onChange={(e) => applyPriceRaw(e.target.value)}
-                              onInput={(e) => applyPriceRaw(e.currentTarget.value)}
                               className="w-full bg-white border border-stone-300 rounded-lg px-2 py-2 focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all outline-none font-semibold tabular-nums"
                             />
                           </div>
@@ -1325,7 +1360,11 @@ export default function App() {
                               onClick={() => {
                                 setNewDoc((prev) => ({
                                   ...prev,
-                                  items: (prev.items || []).filter((_, i) => i !== idx),
+                                  items: (prev.items || []).filter((r, i) =>
+                                    rowKey != null && rowKey !== ""
+                                      ? r.draftRowKey !== rowKey
+                                      : i !== idx
+                                  ),
                                 }));
                               }}
                               className="p-2 text-stone-300 hover:text-red-500 transition-colors"
