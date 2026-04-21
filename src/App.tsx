@@ -55,11 +55,6 @@ function parseDecimalInput(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function formatQuantityForInput(q: number): string {
-  if (!Number.isFinite(q) || q === 0) return "";
-  return String(q);
-}
-
 function formatPriceForInput(p: number): string {
   if (!Number.isFinite(p) || p === 0) return "";
   return String(roundMoney(p));
@@ -106,20 +101,11 @@ function mapNewDocItemsAt(
   return { ...prev, items: nextItems };
 }
 
-/** Zeile per `draftRowKey` finden, sonst Fallback-Index (z. B. alte Entwürfe ohne Key). */
-function mapNewDocItemByDraftKey(
-  prev: Partial<Document>,
-  draftRowKey: string | undefined,
-  rowIndex: number,
-  updater: (row: DocumentItem) => DocumentItem
-): Partial<Document> {
-  const list = prev.items || [];
-  const byKey =
-    draftRowKey != null && draftRowKey !== ""
-      ? list.findIndex((r) => r.draftRowKey === draftRowKey)
-      : -1;
-  const index = byKey >= 0 ? byKey : rowIndex;
-  return mapNewDocItemsAt(prev, index, updater);
+/** Feste Einheiten im Dokument-Assistenten; andere Werte (z. B. aus dem Leistungskatalog) extra als Option. */
+const DOC_ITEM_SELECT_UNITS = ["Std", "Stk", "m", "m²", "m³", "Psch", "kg", "t", "l"] as const;
+
+function isKnownDocSelectUnit(u: string): boolean {
+  return (DOC_ITEM_SELECT_UNITS as readonly string[]).includes(u);
 }
 
 function stripDraftRowKey(item: DocumentItem): DocumentItem {
@@ -483,6 +469,18 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [openDocument]);
+
+  useEffect(() => {
+    if (view !== "create-doc" || currentStep !== 3) return;
+    setNewDoc((prev) => {
+      const items = prev.items || [];
+      if (!items.some((r) => !r.draftRowKey)) return prev;
+      return {
+        ...prev,
+        items: items.map((r) => (r.draftRowKey ? r : { ...r, draftRowKey: newDraftRowKey() })),
+      };
+    });
+  }, [view, currentStep]);
 
   const handleAuth = (newToken: string, newUser: any) => {
     if (!newToken || typeof newToken !== "string") return;
@@ -1258,10 +1256,9 @@ export default function App() {
 
                     <div className="space-y-4">
                       {newDoc.items?.map((item, idx) => {
-                        const rowKey = item.draftRowKey;
                         const applyQuantityRaw = (raw: string) => {
                           setNewDoc((prev) =>
-                            mapNewDocItemByDraftKey(prev, rowKey, idx, (row) => {
+                            mapNewDocItemsAt(prev, idx, (row) => {
                               const parsed = parseDecimalInput(raw);
                               const nextQ = parsed === null ? Number(row.quantity) || 0 : parsed;
                               return normalizeItemForTotals({ ...row, quantity: nextQ });
@@ -1270,7 +1267,7 @@ export default function App() {
                         };
                         const applyPriceRaw = (raw: string) => {
                           setNewDoc((prev) =>
-                            mapNewDocItemByDraftKey(prev, rowKey, idx, (row) => {
+                            mapNewDocItemsAt(prev, idx, (row) => {
                               const parsed = parseDecimalInput(raw);
                               const nextP = parsed === null ? Number(row.price) || 0 : roundMoney(parsed);
                               return normalizeItemForTotals({ ...row, price: nextP });
@@ -1289,7 +1286,7 @@ export default function App() {
                               onChange={(e) => {
                                 const title = e.target.value;
                                 setNewDoc((prev) =>
-                                  mapNewDocItemByDraftKey(prev, rowKey, idx, (row) => ({ ...row, title }))
+                                  mapNewDocItemsAt(prev, idx, (row) => ({ ...row, title }))
                                 );
                               }}
                               className="w-full bg-white border border-stone-300 rounded-lg px-2 py-2 focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all outline-none font-semibold"
@@ -1298,13 +1295,15 @@ export default function App() {
                           <div className="col-span-3 sm:col-span-1">
                             <label className="text-[10px] font-bold text-stone-400 uppercase">Menge</label>
                             <input 
-                              type="text"
+                              type="number"
                               inputMode="decimal"
+                              step="any"
+                              min={0}
                               autoComplete="off"
-                              value={formatQuantityForInput(Number(item.quantity) || 0)}
+                              value={item.quantity === 0 ? "" : item.quantity}
                               placeholder="0"
                               onFocus={(e) => e.target.select()}
-                              onChange={(e) => applyQuantityRaw(e.target.value)}
+                              onChange={(e) => applyQuantityRaw(e.currentTarget.value)}
                               className="w-full bg-white border border-stone-300 rounded-lg px-2 py-2 focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all outline-none font-semibold tabular-nums"
                             />
                           </div>
@@ -1317,7 +1316,7 @@ export default function App() {
                                 if (item.unitLocked) return;
                                 const unit = e.target.value;
                                 setNewDoc((prev) =>
-                                  mapNewDocItemByDraftKey(prev, rowKey, idx, (row) => ({ ...row, unit }))
+                                  mapNewDocItemsAt(prev, idx, (row) => ({ ...row, unit }))
                                 );
                               }}
                               className={cn(
@@ -1325,6 +1324,9 @@ export default function App() {
                                 item.unitLocked ? "opacity-70 cursor-not-allowed" : ""
                               )}
                             >
+                              {!isKnownDocSelectUnit(item.unit) && item.unit ? (
+                                <option value={item.unit}>{item.unit}</option>
+                              ) : null}
                               <option value="Std">Std</option>
                               <option value="Stk">Stück</option>
                               <option value="m">Meter</option>
@@ -1360,11 +1362,7 @@ export default function App() {
                               onClick={() => {
                                 setNewDoc((prev) => ({
                                   ...prev,
-                                  items: (prev.items || []).filter((r, i) =>
-                                    rowKey != null && rowKey !== ""
-                                      ? r.draftRowKey !== rowKey
-                                      : i !== idx
-                                  ),
+                                  items: (prev.items || []).filter((_, i) => i !== idx),
                                 }));
                               }}
                               className="p-2 text-stone-300 hover:text-red-500 transition-colors"
