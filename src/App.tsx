@@ -47,10 +47,10 @@ function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-/** Leer -> 0; gültige Zahl -> Wert; ungültig -> null (Aufrufer behält Vorwert). */
-function parseDecimalInput(raw: string): number | null {
+/** Leer oder ungültig -> null (Aufrufer behält Vorwert); sonst Zahl (inkl. 0). */
+function parseOptionalDecimalInput(raw: string): number | null {
   const t = raw.trim();
-  if (t === "") return 0;
+  if (t === "") return null;
   const n = parseFloat(t.replace(",", "."));
   return Number.isFinite(n) ? n : null;
 }
@@ -99,6 +99,42 @@ function mapNewDocItemsAt(
   if (index < 0 || index >= list.length) return prev;
   const nextItems = list.map((row, i) => (i === index ? updater(row) : row));
   return { ...prev, items: nextItems };
+}
+
+/** Zeilenindex anhand aktueller Liste; zuerst draftRowKey, sonst Fallback-Index aus dem Render. */
+function resolveDocItemIndex(
+  list: DocumentItem[],
+  draftRowKey: string | undefined,
+  fallbackIndex: number
+): number {
+  let i =
+    draftRowKey != null && draftRowKey !== ""
+      ? list.findIndex((r) => r.draftRowKey === draftRowKey)
+      : -1;
+  if (i < 0) i = fallbackIndex;
+  if (i < 0 || i >= list.length) return -1;
+  return i;
+}
+
+function updateNewDocItem(
+  prev: Partial<Document>,
+  draftRowKey: string | undefined,
+  fallbackIndex: number,
+  updater: (row: DocumentItem) => DocumentItem
+): Partial<Document> {
+  const list = prev.items || [];
+  const i = resolveDocItemIndex(list, draftRowKey, fallbackIndex);
+  if (i < 0) {
+    if (import.meta.env.DEV) {
+      console.warn("updateNewDocItem: ungültiger Index", {
+        draftRowKey,
+        fallbackIndex,
+        len: list.length,
+      });
+    }
+    return prev;
+  }
+  return mapNewDocItemsAt(prev, i, updater);
 }
 
 /** Feste Einheiten im Dokument-Assistenten; andere Werte (z. B. aus dem Leistungskatalog) extra als Option. */
@@ -1256,20 +1292,23 @@ export default function App() {
 
                     <div className="space-y-4">
                       {newDoc.items?.map((item, idx) => {
+                        const rowKey = item.draftRowKey;
                         const applyQuantityRaw = (raw: string) => {
                           setNewDoc((prev) =>
-                            mapNewDocItemsAt(prev, idx, (row) => {
-                              const parsed = parseDecimalInput(raw);
-                              const nextQ = parsed === null ? Number(row.quantity) || 0 : parsed;
+                            updateNewDocItem(prev, rowKey, idx, (row) => {
+                              const parsed = parseOptionalDecimalInput(raw);
+                              const nextQ =
+                                parsed === null ? Number(row.quantity) || 0 : parsed;
                               return normalizeItemForTotals({ ...row, quantity: nextQ });
                             })
                           );
                         };
                         const applyPriceRaw = (raw: string) => {
                           setNewDoc((prev) =>
-                            mapNewDocItemsAt(prev, idx, (row) => {
-                              const parsed = parseDecimalInput(raw);
-                              const nextP = parsed === null ? Number(row.price) || 0 : roundMoney(parsed);
+                            updateNewDocItem(prev, rowKey, idx, (row) => {
+                              const parsed = parseOptionalDecimalInput(raw);
+                              const nextP =
+                                parsed === null ? Number(row.price) || 0 : roundMoney(parsed);
                               return normalizeItemForTotals({ ...row, price: nextP });
                             })
                           );
@@ -1286,7 +1325,7 @@ export default function App() {
                               onChange={(e) => {
                                 const title = e.target.value;
                                 setNewDoc((prev) =>
-                                  mapNewDocItemsAt(prev, idx, (row) => ({ ...row, title }))
+                                  updateNewDocItem(prev, rowKey, idx, (row) => ({ ...row, title }))
                                 );
                               }}
                               className="w-full bg-white border border-stone-300 rounded-lg px-2 py-2 focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all outline-none font-semibold"
@@ -1316,7 +1355,7 @@ export default function App() {
                                 if (item.unitLocked) return;
                                 const unit = e.target.value;
                                 setNewDoc((prev) =>
-                                  mapNewDocItemsAt(prev, idx, (row) => ({ ...row, unit }))
+                                  updateNewDocItem(prev, rowKey, idx, (row) => ({ ...row, unit }))
                                 );
                               }}
                               className={cn(
@@ -1360,10 +1399,15 @@ export default function App() {
                           <div className="col-span-12 sm:col-span-1 flex justify-end">
                             <button 
                               onClick={() => {
-                                setNewDoc((prev) => ({
-                                  ...prev,
-                                  items: (prev.items || []).filter((_, i) => i !== idx),
-                                }));
+                                setNewDoc((prev) => {
+                                  const list = prev.items || [];
+                                  const i = resolveDocItemIndex(list, rowKey, idx);
+                                  if (i < 0) return prev;
+                                  return {
+                                    ...prev,
+                                    items: list.filter((_, j) => j !== i),
+                                  };
+                                });
                               }}
                               className="p-2 text-stone-300 hover:text-red-500 transition-colors"
                             >
