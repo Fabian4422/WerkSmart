@@ -69,6 +69,31 @@ function normalizeItemForTotals(item: DocumentItem): DocumentItem {
   };
 }
 
+function newDraftRowKey(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+/** Position im Entwurf ersetzen, ohne Zeilen-Objekte zu mutieren (verlässliche Re-Renders). */
+function mapNewDocItemsAt(
+  prev: Partial<Document>,
+  index: number,
+  updater: (row: DocumentItem) => DocumentItem
+): Partial<Document> {
+  const list = prev.items || [];
+  if (index < 0 || index >= list.length) return prev;
+  const nextItems = list.map((row, i) => (i === index ? updater(row) : row));
+  return { ...prev, items: nextItems };
+}
+
+function stripDraftRowKey(item: DocumentItem): DocumentItem {
+  const next = { ...item };
+  delete next.draftRowKey;
+  return next;
+}
+
 /** Verkleinert Bilder für Base64 im Profil (Onboarding), damit das JSON-Limit nicht reißt. */
 async function compressImageToDataUrl(file: File, maxEdge = 900): Promise<string> {
   const bitmap = await createImageBitmap(file);
@@ -570,8 +595,9 @@ export default function App() {
       unitLocked: true,
       serviceId: service.id,
       source: "service",
+      draftRowKey: newDraftRowKey(),
     };
-    setNewDoc({ ...newDoc, items: [...(newDoc.items || []), newItem] });
+    setNewDoc((prev) => ({ ...prev, items: [...(prev.items || []), newItem] }));
     setSelectedServiceId("");
   };
 
@@ -588,7 +614,7 @@ export default function App() {
       alert("Bitte mindestens eine Leistung hinzufügen.");
       return;
     }
-    const normalizedItems = (newDoc.items || []).map(normalizeItemForTotals);
+    const normalizedItems = (newDoc.items || []).map(normalizeItemForTotals).map(stripDraftRowKey);
     const totalNet = roundMoney(normalizedItems.reduce((sum, item) => sum + lineItemLineTotal(item), 0));
     const vatRate = profile?.vatRate || 19;
     const totalVat = profile?.isSmallBusiness ? 0 : roundMoney((totalNet * vatRate) / 100);
@@ -1185,8 +1211,9 @@ export default function App() {
                               total: 0,
                               unitLocked: false,
                               source: "custom",
+                              draftRowKey: newDraftRowKey(),
                             };
-                            setNewDoc({ ...newDoc, items: [...(newDoc.items || []), newItem] });
+                            setNewDoc((prev) => ({ ...prev, items: [...(prev.items || []), newItem] }));
                           }}
                           className="bg-stone-900 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
                         >
@@ -1196,16 +1223,39 @@ export default function App() {
                     </div>
 
                     <div className="space-y-4">
-                      {newDoc.items?.map((item, idx) => (
-                        <div key={idx} className="p-4 rounded-2xl bg-stone-50 border border-stone-100 grid grid-cols-12 gap-4 items-end group">
+                      {newDoc.items?.map((item, idx) => {
+                        const applyQuantityRaw = (raw: string) => {
+                          setNewDoc((prev) =>
+                            mapNewDocItemsAt(prev, idx, (row) => {
+                              const q = raw === "" ? 0 : parseFloat(raw.replace(",", "."));
+                              const nextQ = Number.isFinite(q) ? q : row.quantity;
+                              return normalizeItemForTotals({ ...row, quantity: nextQ });
+                            })
+                          );
+                        };
+                        const applyPriceRaw = (raw: string) => {
+                          setNewDoc((prev) =>
+                            mapNewDocItemsAt(prev, idx, (row) => {
+                              const p = raw === "" ? 0 : parseFloat(raw.replace(",", "."));
+                              const nextP = Number.isFinite(p) ? p : row.price;
+                              return normalizeItemForTotals({ ...row, price: nextP });
+                            })
+                          );
+                        };
+                        return (
+                        <div
+                          key={item.draftRowKey ?? `row-${idx}`}
+                          className="p-4 rounded-2xl bg-stone-50 border border-stone-100 grid grid-cols-12 gap-4 items-end group"
+                        >
                           <div className="col-span-12 sm:col-span-4">
                             <label className="text-[10px] font-bold text-stone-400 uppercase">Bezeichnung</label>
                             <input 
                               type="text" value={item.title}
                               onChange={(e) => {
-                                const items = [...(newDoc.items || [])];
-                                items[idx].title = e.target.value;
-                                setNewDoc({ ...newDoc, items });
+                                const title = e.target.value;
+                                setNewDoc((prev) =>
+                                  mapNewDocItemsAt(prev, idx, (row) => ({ ...row, title }))
+                                );
                               }}
                               className="w-full bg-white border border-stone-300 rounded-lg px-2 py-2 focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all outline-none font-semibold"
                             />
@@ -1217,14 +1267,8 @@ export default function App() {
                               value={item.quantity === 0 ? "" : item.quantity}
                               placeholder="0"
                               onFocus={(e) => e.target.select()}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                const items = [...(newDoc.items || [])];
-                                const q = val === "" ? 0 : parseFloat(val.replace(",", "."));
-                                items[idx].quantity = Number.isFinite(q) ? q : items[idx].quantity;
-                                items[idx].total = lineItemLineTotal(items[idx]);
-                                setNewDoc({ ...newDoc, items });
-                              }}
+                              onChange={(e) => applyQuantityRaw(e.target.value)}
+                              onInput={(e) => applyQuantityRaw(e.currentTarget.value)}
                               className="w-full bg-white border border-stone-300 rounded-lg px-2 py-2 focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all outline-none font-semibold tabular-nums"
                             />
                           </div>
@@ -1235,9 +1279,10 @@ export default function App() {
                               disabled={!!item.unitLocked}
                               onChange={(e) => {
                                 if (item.unitLocked) return;
-                                const items = [...(newDoc.items || [])];
-                                items[idx].unit = e.target.value;
-                                setNewDoc({ ...newDoc, items });
+                                const unit = e.target.value;
+                                setNewDoc((prev) =>
+                                  mapNewDocItemsAt(prev, idx, (row) => ({ ...row, unit }))
+                                );
                               }}
                               className={cn(
                                 "w-full bg-white border border-stone-300 rounded-lg px-2 py-2 focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all outline-none font-semibold appearance-none",
@@ -1264,14 +1309,8 @@ export default function App() {
                               value={item.price === 0 ? "" : item.price}
                               placeholder="0"
                               onFocus={(e) => e.target.select()}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                const items = [...(newDoc.items || [])];
-                                const p = val === "" ? 0 : parseFloat(val.replace(",", "."));
-                                items[idx].price = Number.isFinite(p) ? p : items[idx].price;
-                                items[idx].total = lineItemLineTotal(items[idx]);
-                                setNewDoc({ ...newDoc, items });
-                              }}
+                              onChange={(e) => applyPriceRaw(e.target.value)}
+                              onInput={(e) => applyPriceRaw(e.currentTarget.value)}
                               className="w-full bg-white border border-stone-300 rounded-lg px-2 py-2 focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all outline-none font-semibold tabular-nums"
                             />
                           </div>
@@ -1284,9 +1323,10 @@ export default function App() {
                           <div className="col-span-12 sm:col-span-1 flex justify-end">
                             <button 
                               onClick={() => {
-                                const items = [...(newDoc.items || [])];
-                                items.splice(idx, 1);
-                                setNewDoc({ ...newDoc, items });
+                                setNewDoc((prev) => ({
+                                  ...prev,
+                                  items: (prev.items || []).filter((_, i) => i !== idx),
+                                }));
                               }}
                               className="p-2 text-stone-300 hover:text-red-500 transition-colors"
                             >
@@ -1294,7 +1334,8 @@ export default function App() {
                             </button>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
                     <div className="flex justify-between pt-8">

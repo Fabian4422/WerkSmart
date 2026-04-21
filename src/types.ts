@@ -42,6 +42,9 @@ export interface DocumentItem {
   price: number;
   total: number;
 
+  /** Nur im Erstellungs-Assistenten: stabiler Key für React-Listen; wird nicht mit dem Dokument persistiert. */
+  draftRowKey?: string;
+
   // Standardleistung: Einheit ist vom Nutzer-Leistungskatalog vorgegeben und darf im Dokument nicht geändert werden.
   // Eigene Leistung: Einheit kann (aktuell) noch frei gewählt/angepasst werden.
   unitLocked?: boolean;
