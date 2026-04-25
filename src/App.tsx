@@ -1301,22 +1301,27 @@ export default function App() {
                       {newDoc.items?.map((item, idx) => {
                         const rowKey = item.draftRowKey;
                         const applyQuantityRaw = (raw: string) => {
-                          setNewDoc((prev) =>
-                            updateNewDocItem(prev, rowKey, idx, (row) => {
-                              const parsed = parseOptionalDecimalInput(raw);
-                              const nextQ = parsed;
-                              return normalizeItemForTotals({ ...row, quantity: nextQ });
-                            })
-                          );
+                          setNewDoc((prev) => {
+                            const list = prev.items || [];
+                            if (idx < 0 || idx >= list.length) return prev;
+                            const parsed = parseOptionalDecimalInput(raw);
+                            const nextItems = list.map((row, j) =>
+                              j === idx ? normalizeItemForTotals({ ...row, quantity: parsed }) : row
+                            );
+                            return { ...prev, items: nextItems };
+                          });
                         };
                         const applyPriceRaw = (raw: string) => {
-                          setNewDoc((prev) =>
-                            updateNewDocItem(prev, rowKey, idx, (row) => {
-                              const parsed = parseOptionalDecimalInput(raw);
-                              const nextP = roundMoney(parsed);
-                              return normalizeItemForTotals({ ...row, price: nextP });
-                            })
-                          );
+                          setNewDoc((prev) => {
+                            const list = prev.items || [];
+                            if (idx < 0 || idx >= list.length) return prev;
+                            const parsed = parseOptionalDecimalInput(raw);
+                            const nextP = roundMoney(parsed);
+                            const nextItems = list.map((row, j) =>
+                              j === idx ? normalizeItemForTotals({ ...row, price: nextP }) : row
+                            );
+                            return { ...prev, items: nextItems };
+                          });
                         };
                         return (
                         <div
