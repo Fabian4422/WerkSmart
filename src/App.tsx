@@ -123,8 +123,15 @@ function updateNewDocItem(
   updater: (row: DocumentItem) => DocumentItem
 ): Partial<Document> {
   const list = prev.items || [];
-  const i = resolveDocItemIndex(list, draftRowKey, fallbackIndex);
-  if (i < 0) {
+  // Im Render-Kontext ist der aktuelle Index die stabilste Referenz
+  // fuer Live-Eingaben (Menge/Preis), damit kein Update stillschweigend verworfen wird.
+  const fallbackInRange = fallbackIndex >= 0 && fallbackIndex < list.length;
+  const resolvedByKey =
+    draftRowKey != null && draftRowKey !== ""
+      ? list.findIndex((r) => r.draftRowKey === draftRowKey)
+      : -1;
+  const i = fallbackInRange ? fallbackIndex : resolvedByKey;
+  if (i < 0 || i >= list.length) {
     if (import.meta.env.DEV) {
       console.warn("updateNewDocItem: ungültiger Index", {
         draftRowKey,
