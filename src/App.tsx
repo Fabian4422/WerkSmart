@@ -353,6 +353,10 @@ export default function App() {
   const buildId =
     String(import.meta.env.VITE_APP_BUILD_ID ?? import.meta.env.VITE_COMMIT_SHA ?? "local").trim() ||
     "local";
+  const runtimeDebug = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("debug") === "1";
+  }, []);
   const [view, setView] = useState<View>("dashboard");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -1308,7 +1312,7 @@ export default function App() {
                             const nextItems = list.map((row, j) =>
                               j === idx ? normalizeItemForTotals({ ...row, quantity: parsed }) : row
                             );
-                            if (import.meta.env.DEV) {
+                            if (import.meta.env.DEV || runtimeDebug) {
                               console.log("[line-debug] quantity-change", {
                                 idx,
                                 rowKey,
@@ -1329,7 +1333,7 @@ export default function App() {
                             const nextItems = list.map((row, j) =>
                               j === idx ? normalizeItemForTotals({ ...row, price: nextP }) : row
                             );
-                            if (import.meta.env.DEV) {
+                            if (import.meta.env.DEV || runtimeDebug) {
                               console.log("[line-debug] price-change", {
                                 idx,
                                 rowKey,
@@ -1424,7 +1428,7 @@ export default function App() {
                             <p className="font-bold text-emerald-700 tabular-nums">
                               {lineItemLineTotal(item).toLocaleString("de-DE", { minimumFractionDigits: 2 })} €
                             </p>
-                            {import.meta.env.DEV ? (
+                            {import.meta.env.DEV || runtimeDebug ? (
                               <p className="text-[10px] text-stone-400 tabular-nums">
                                 q={String(item.quantity)} | p={String(item.price)} | t=
                                 {String(lineItemLineTotal(item))}
