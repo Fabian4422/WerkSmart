@@ -1308,6 +1308,15 @@ export default function App() {
                             const nextItems = list.map((row, j) =>
                               j === idx ? normalizeItemForTotals({ ...row, quantity: parsed }) : row
                             );
+                            if (import.meta.env.DEV) {
+                              console.log("[line-debug] quantity-change", {
+                                idx,
+                                rowKey,
+                                raw,
+                                parsed,
+                                nextItem: nextItems[idx],
+                              });
+                            }
                             return { ...prev, items: nextItems };
                           });
                         };
@@ -1320,6 +1329,16 @@ export default function App() {
                             const nextItems = list.map((row, j) =>
                               j === idx ? normalizeItemForTotals({ ...row, price: nextP }) : row
                             );
+                            if (import.meta.env.DEV) {
+                              console.log("[line-debug] price-change", {
+                                idx,
+                                rowKey,
+                                raw,
+                                parsed,
+                                nextPrice: nextP,
+                                nextItem: nextItems[idx],
+                              });
+                            }
                             return { ...prev, items: nextItems };
                           });
                         };
@@ -1405,6 +1424,12 @@ export default function App() {
                             <p className="font-bold text-emerald-700 tabular-nums">
                               {lineItemLineTotal(item).toLocaleString("de-DE", { minimumFractionDigits: 2 })} €
                             </p>
+                            {import.meta.env.DEV ? (
+                              <p className="text-[10px] text-stone-400 tabular-nums">
+                                q={String(item.quantity)} | p={String(item.price)} | t=
+                                {String(lineItemLineTotal(item))}
+                              </p>
+                            ) : null}
                           </div>
                           <div className="col-span-12 sm:col-span-1 flex justify-end">
                             <button 
