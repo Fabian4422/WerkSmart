@@ -47,12 +47,12 @@ function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-/** Leer oder ungültig -> null (Aufrufer behält Vorwert); sonst Zahl (inkl. 0). */
-function parseOptionalDecimalInput(raw: string): number | null {
+/** Leer oder ungültig -> 0; sonst Zahl (inkl. 0). */
+function parseOptionalDecimalInput(raw: string): number {
   const t = raw.trim();
-  if (t === "") return null;
+  if (t === "") return 0;
   const n = parseFloat(t.replace(",", "."));
-  return Number.isFinite(n) ? n : null;
+  return Number.isFinite(n) ? n : 0;
 }
 
 function formatPriceForInput(p: number): string {
@@ -1297,7 +1297,7 @@ export default function App() {
                           setNewDoc((prev) =>
                             updateNewDocItem(prev, rowKey, idx, (row) => {
                               const parsed = parseOptionalDecimalInput(raw);
-                              const nextQ = parsed ?? 0;
+                              const nextQ = parsed;
                               return normalizeItemForTotals({ ...row, quantity: nextQ });
                             })
                           );
@@ -1306,8 +1306,7 @@ export default function App() {
                           setNewDoc((prev) =>
                             updateNewDocItem(prev, rowKey, idx, (row) => {
                               const parsed = parseOptionalDecimalInput(raw);
-                              const nextP =
-                                parsed == null ? 0 : roundMoney(parsed);
+                              const nextP = roundMoney(parsed);
                               return normalizeItemForTotals({ ...row, price: nextP });
                             })
                           );
