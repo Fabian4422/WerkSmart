@@ -1297,8 +1297,7 @@ export default function App() {
                           setNewDoc((prev) =>
                             updateNewDocItem(prev, rowKey, idx, (row) => {
                               const parsed = parseOptionalDecimalInput(raw);
-                              const nextQ =
-                                parsed === null ? Number(row.quantity) || 0 : parsed;
+                              const nextQ = parsed ?? 0;
                               return normalizeItemForTotals({ ...row, quantity: nextQ });
                             })
                           );
@@ -1308,7 +1307,7 @@ export default function App() {
                             updateNewDocItem(prev, rowKey, idx, (row) => {
                               const parsed = parseOptionalDecimalInput(raw);
                               const nextP =
-                                parsed === null ? Number(row.price) || 0 : roundMoney(parsed);
+                                parsed == null ? 0 : roundMoney(parsed);
                               return normalizeItemForTotals({ ...row, price: nextP });
                             })
                           );
